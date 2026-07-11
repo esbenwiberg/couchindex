@@ -12,7 +12,7 @@
 
 - TMDb authentication
 - Danish availability
-- Subscription configuration
+- Subscription configuration with local persistence
 - Browse rows and title details
 - Provider launch handoff
 

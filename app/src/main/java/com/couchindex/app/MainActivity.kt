@@ -49,6 +49,7 @@ import com.couchindex.app.config.AppConfig
 import com.couchindex.app.config.AppConfigLoader
 import com.couchindex.app.launch.AndroidProviderLauncher
 import com.couchindex.app.launch.ProviderLaunchResult
+import com.couchindex.app.settings.SubscriptionStore
 import com.couchindex.core.BrowseRow
 import com.couchindex.core.BuildHomeRows
 import com.couchindex.core.LaunchTarget
@@ -80,9 +81,10 @@ private fun CouchIndexApp() {
     val context = LocalContext.current
     val appConfig = remember { AppConfigLoader.load() }
     val providerLauncher = remember(context) { AndroidProviderLauncher(context) }
+    val subscriptionStore = remember(context) { SubscriptionStore(context) }
     val providers = remember { SampleCatalogue.providers }
     val subscriptions = remember {
-        mutableStateListOf(*SampleCatalogue.subscriptions.toTypedArray())
+        mutableStateListOf(*subscriptionStore.load(SampleCatalogue.subscriptions).toTypedArray())
     }
     val rows by remember {
         derivedStateOf {
@@ -147,7 +149,9 @@ private fun CouchIndexApp() {
                     val index = subscriptions.indexOfFirst { it.providerId == providerId }
                     if (index >= 0) {
                         val existing = subscriptions[index]
-                        subscriptions[index] = existing.copy(enabled = !existing.enabled)
+                        val updated = existing.copy(enabled = !existing.enabled)
+                        subscriptions[index] = updated
+                        subscriptionStore.setEnabled(updated.providerId, updated.enabled)
                     }
                 },
             )
