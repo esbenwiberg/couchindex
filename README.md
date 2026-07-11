@@ -68,6 +68,12 @@ Browse TMDb titles available in Denmark
 
 API credentials must be supplied through uncommitted local configuration. Do not commit secrets.
 
+For TMDb, add a read access token to `local.properties`:
+
+```properties
+TMDB_READ_ACCESS_TOKEN=your_token_here
+```
+
 ## Development
 
 The Android scaffold is pinned to the current Android Gradle plugin family documented for API 37:
