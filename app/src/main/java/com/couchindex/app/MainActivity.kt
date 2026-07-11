@@ -43,6 +43,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.couchindex.app.config.AppConfig
+import com.couchindex.app.config.AppConfigLoader
 import com.couchindex.core.BrowseRow
 import com.couchindex.core.BuildHomeRows
 import com.couchindex.core.MediaKind
@@ -70,6 +72,7 @@ private enum class Destination(val label: String) {
 @Composable
 private fun CouchIndexApp() {
     val rowBuilder = remember { BuildHomeRows() }
+    val appConfig = remember { AppConfigLoader.load() }
     val providers = remember { SampleCatalogue.providers }
     val subscriptions = remember {
         mutableStateListOf(*SampleCatalogue.subscriptions.toTypedArray())
@@ -114,6 +117,7 @@ private fun CouchIndexApp() {
             MainSurface(
                 destination = destination,
                 rows = rows,
+                appConfig = appConfig,
                 providers = providers,
                 subscriptions = subscriptions,
                 selectedTitle = selectedTitle,
@@ -175,6 +179,7 @@ private fun DestinationRail(
 private fun MainSurface(
     destination: Destination,
     rows: List<BrowseRow>,
+    appConfig: AppConfig,
     providers: List<Provider>,
     subscriptions: List<Subscription>,
     selectedTitle: Title?,
@@ -204,6 +209,7 @@ private fun MainSurface(
                 )
 
                 Destination.Settings -> SettingsScreen(
+                    appConfig = appConfig,
                     providers = providers,
                     subscriptions = subscriptions,
                     onSubscriptionToggle = onSubscriptionToggle,
@@ -301,6 +307,7 @@ private fun BrowseScreen(
 
 @Composable
 private fun SettingsScreen(
+    appConfig: AppConfig,
     providers: List<Provider>,
     subscriptions: List<Subscription>,
     onSubscriptionToggle: (String) -> Unit,
@@ -321,6 +328,15 @@ private fun SettingsScreen(
                 onClick = { onSubscriptionToggle(provider.id) },
             )
         }
+        Spacer(modifier = Modifier.height(12.dp))
+        BasicText(
+            text = "Integrations",
+            style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 22.sp, fontWeight = FontWeight.SemiBold),
+        )
+        IntegrationStatus(
+            name = "TMDb",
+            configured = appConfig.hasTmdbReadAccessToken,
+        )
     }
 }
 
@@ -619,6 +635,43 @@ private fun ProviderToggle(
             )
         }
         TogglePill(enabled = enabled)
+    }
+}
+
+@Composable
+private fun IntegrationStatus(
+    name: String,
+    configured: Boolean,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(68.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF151B1E))
+            .border(1.dp, Color(0xFF273236), RoundedCornerShape(8.dp))
+            .padding(horizontal = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column {
+            BasicText(
+                text = name,
+                style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
+            )
+            BasicText(
+                text = if (configured) "Read token configured" else "Using sample catalogue",
+                style = TextStyle(color = Color(0xFFA8B3B7), fontSize = 13.sp),
+            )
+        }
+        BasicText(
+            text = if (configured) "Ready" else "Local",
+            style = TextStyle(
+                color = if (configured) Color(0xFFE8C468) else Color(0xFF8FA0A5),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+            ),
+        )
     }
 }
 
