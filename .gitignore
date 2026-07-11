@@ -1,0 +1,8 @@
+# Bootstrap ignore rules
+.idea/
+.gradle/
+local.properties
+/build/
+**/build/
+*.iml
+.DS_Store
