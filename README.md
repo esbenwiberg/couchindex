@@ -80,8 +80,8 @@ The Android scaffold is pinned to the current Android Gradle plugin family docum
 Once the local Android toolchain is installed, build from Android Studio or from the repository root:
 
 ```sh
-gradle :app:assembleDebug
-gradle :core:test
+./gradlew :app:assembleDebug
+./gradlew :core:test
 ```
 
 ## Status

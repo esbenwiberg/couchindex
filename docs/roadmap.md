@@ -6,7 +6,7 @@
 - [x] Compose for TV shell
 - [x] Home, Browse and Settings destinations
 - [x] Remote focus behavior baseline
-- [ ] Verified build on a local Android toolchain
+- [x] Verified build on a local Android toolchain
 
 ## Milestone 2: catalogue vertical slice
 
