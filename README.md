@@ -37,11 +37,11 @@ The first version focuses on a thin vertical slice:
 
 ```text
 app/
-  Google TV UI and Android integration
+  Android TV UI, Compose shell and platform integration
 core/
-  Domain model and use cases
+  Domain model, sample catalogue and browse row use cases
 infrastructure/
-  Catalogue APIs, ratings, persistence and provider launching
+  Catalogue APIs, ratings, persistence and provider launching (added when useful)
 ```
 
 The app is local-first. A backend is intentionally excluded from V1.
@@ -53,7 +53,8 @@ The app is local-first. A backend is intentionally excluded from V1.
 - Additional rating adapter: Rotten Tomatoes and other sources where legally and technically available
 - Local database: subscriptions, watchlist, recent launches and Continue Watching state
 
-External scores are never blended into a fake universal rating. Vote count is retained so browse ranking can avoid promoting titles with tiny samples.
+External scores are never blended into a fake universal rating. Vote count is retained so browse ranking
+can avoid promoting titles with tiny samples.
 
 ## First technical milestone
 
@@ -67,6 +68,23 @@ Browse TMDb titles available in Denmark
 
 API credentials must be supplied through uncommitted local configuration. Do not commit secrets.
 
+## Development
+
+The Android scaffold is pinned to the current Android Gradle plugin family documented for API 37:
+
+- JDK 17 or newer
+- Android SDK API 37
+- Android SDK Build Tools 36.0.0
+- Gradle 9.4.1 or an Android Studio version that can import AGP 9.2.0 projects
+
+Once the local Android toolchain is installed, build from Android Studio or from the repository root:
+
+```sh
+gradle :app:assembleDebug
+gradle :core:test
+```
+
 ## Status
 
-Initial scaffold. The dependency versions in the first Android project commit should be verified against the installed Android Studio version before implementation begins.
+Milestone 1 scaffold in progress. The repo now contains a native Android TV app module, an Android-free
+core module, placeholder browse data and a Compose shell with Home, Browse and Settings destinations.

@@ -2,10 +2,11 @@
 
 ## Milestone 1: runnable TV shell
 
-- Android TV project
-- Compose for TV navigation
-- Home, Browse and Settings destinations
-- Remote focus behavior
+- [x] Android TV project
+- [x] Compose for TV shell
+- [x] Home, Browse and Settings destinations
+- [x] Remote focus behavior baseline
+- [ ] Verified build on a local Android toolchain
 
 ## Milestone 2: catalogue vertical slice
 
