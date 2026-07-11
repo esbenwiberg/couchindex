@@ -1,6 +1,7 @@
 package com.couchindex.app
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -38,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,8 +47,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.couchindex.app.config.AppConfig
 import com.couchindex.app.config.AppConfigLoader
+import com.couchindex.app.launch.AndroidProviderLauncher
+import com.couchindex.app.launch.ProviderLaunchResult
 import com.couchindex.core.BrowseRow
 import com.couchindex.core.BuildHomeRows
+import com.couchindex.core.LaunchTarget
 import com.couchindex.core.MediaKind
 import com.couchindex.core.Provider
 import com.couchindex.core.Rating
@@ -72,7 +77,9 @@ private enum class Destination(val label: String) {
 @Composable
 private fun CouchIndexApp() {
     val rowBuilder = remember { BuildHomeRows() }
+    val context = LocalContext.current
     val appConfig = remember { AppConfigLoader.load() }
+    val providerLauncher = remember(context) { AndroidProviderLauncher(context) }
     val providers = remember { SampleCatalogue.providers }
     val subscriptions = remember {
         mutableStateListOf(*SampleCatalogue.subscriptions.toTypedArray())
@@ -122,6 +129,20 @@ private fun CouchIndexApp() {
                 subscriptions = subscriptions,
                 selectedTitle = selectedTitle,
                 onTitleSelected = { selectedTitle = it },
+                onLaunchTargetSelected = { target ->
+                    when (providerLauncher.launch(target)) {
+                        ProviderLaunchResult.Launched -> Unit
+                        ProviderLaunchResult.MissingTarget,
+                        ProviderLaunchResult.MissingUri -> Toast.makeText(
+                            context,
+                            "Launch target pending",
+                            Toast.LENGTH_SHORT,
+                        ).show()
+
+                        ProviderLaunchResult.ActivityUnavailable ->
+                            Toast.makeText(context, "No app can open this target", Toast.LENGTH_SHORT).show()
+                    }
+                },
                 onSubscriptionToggle = { providerId ->
                     val index = subscriptions.indexOfFirst { it.providerId == providerId }
                     if (index >= 0) {
@@ -184,6 +205,7 @@ private fun MainSurface(
     subscriptions: List<Subscription>,
     selectedTitle: Title?,
     onTitleSelected: (Title) -> Unit,
+    onLaunchTargetSelected: (LaunchTarget?) -> Unit,
     onSubscriptionToggle: (String) -> Unit,
 ) {
     Row(
@@ -219,6 +241,7 @@ private fun MainSurface(
         DetailsPanel(
             title = selectedTitle,
             providers = providers,
+            onLaunchTargetSelected = onLaunchTargetSelected,
         )
     }
 }
@@ -505,6 +528,7 @@ private fun BrowseListItem(
 private fun DetailsPanel(
     title: Title?,
     providers: List<Provider>,
+    onLaunchTargetSelected: (LaunchTarget?) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -558,7 +582,7 @@ private fun DetailsPanel(
         FocusButton(
             label = title.launchTargets.firstOrNull()?.label ?: "No launch target",
             selected = true,
-            onClick = {},
+            onClick = { onLaunchTargetSelected(title.launchTargets.firstOrNull()) },
         )
     }
 }
