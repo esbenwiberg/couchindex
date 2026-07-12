@@ -21,6 +21,7 @@ import kotlinx.coroutines.coroutineScope
 class TmdbCatalogueRepository(
     private val source: TmdbDiscoverSource,
     providers: List<Provider>,
+    private val externalIdSource: TmdbExternalIdSource? = source as? TmdbExternalIdSource,
     ratingAdapters: List<RatingAdapter> = emptyList(),
     private val retrievedAt: () -> String = { Instant.now().toString() },
 ) : CatalogueRepository {
@@ -50,7 +51,26 @@ class TmdbCatalogueRepository(
             }
         }
 
-        mergeOffers(requests.awaitAll().flatten(), region).map(enrichTitleRatings::invoke)
+        val titles = mergeOffers(requests.awaitAll().flatten(), region)
+        val idSource = externalIdSource
+        val identifiedTitles = if (idSource == null) {
+            titles
+        } else {
+            buildList {
+                for (batch in titles.chunked(EXTERNAL_ID_CONCURRENCY)) {
+                    addAll(
+                        batch.map { title ->
+                            async(Dispatchers.IO) {
+                                val externalIds = runCatching { idSource.fetchExternalIds(title.id) }
+                                    .getOrDefault(emptyMap())
+                                title.copy(externalIds = externalIds)
+                            }
+                        }.awaitAll(),
+                    )
+                }
+            }
+        }
+        identifiedTitles.map(enrichTitleRatings::invoke)
     }
 
     private fun mergeOffers(discovered: List<DiscoveredOffer>, region: String): List<Title> {
@@ -114,5 +134,9 @@ class TmdbCatalogueRepository(
             MediaKind.Series -> "tv"
         }
         return "https://www.themoviedb.org/$mediaPath/$tmdbId/watch?locale=$region"
+    }
+
+    companion object {
+        private const val EXTERNAL_ID_CONCURRENCY = 8
     }
 }

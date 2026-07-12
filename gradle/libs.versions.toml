@@ -4,6 +4,7 @@ kotlin = "2.3.10"
 activity = "1.13.0"
 composeBom = "2026.06.01"
 junit = "4.13.2"
+json = "20251224"
 kotlinxCoroutines = "1.10.2"
 tvMaterial = "1.1.0"
 
@@ -16,6 +17,7 @@ androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-tv-material = { module = "androidx.tv:tv-material", version.ref = "tvMaterial" }
 junit = { module = "junit:junit", version.ref = "junit" }
+json = { module = "org.json:json", version.ref = "json" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 
 [plugins]

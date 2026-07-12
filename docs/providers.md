@@ -12,6 +12,8 @@ TMDb watch-provider availability is supplied by JustWatch. CouchIndex attributes
 
 IMDb and TMDb are initial rating sources. Rotten Tomatoes or other sources may be added through replaceable adapters when access and usage terms are suitable.
 
+TMDb external-ID endpoints provide the explicit IMDb title identifiers used for dataset joins. Lookups are bounded and failure-tolerant; CouchIndex does not correlate ratings by fuzzy title text.
+
 Every rating retains:
 
 - source

@@ -1,6 +1,7 @@
 package com.couchindex.app.tmdb
 
 import com.couchindex.core.MediaKind
+import com.couchindex.core.TitleId
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -78,10 +79,14 @@ fun interface TmdbProviderSource {
     fun fetchWatchProviders(mediaType: TmdbProviderMediaType, region: String): List<TmdbWatchProvider>
 }
 
+fun interface TmdbExternalIdSource {
+    fun fetchExternalIds(titleId: TitleId): Map<String, String>
+}
+
 class TmdbDiscoverClient(
     private val readAccessToken: String,
     private val baseUrl: String = DEFAULT_BASE_URL,
-) : TmdbDiscoverSource, TmdbProviderSource {
+) : TmdbDiscoverSource, TmdbProviderSource, TmdbExternalIdSource {
     fun discoverUrl(query: TmdbDiscoverQuery): URL {
         val params = listOf(
             "language" to query.language,
@@ -119,6 +124,19 @@ class TmdbDiscoverClient(
         return TmdbProviderParser.parse(executeGet(watchProvidersUrl(mediaType, region)), region)
     }
 
+    fun externalIdsUrl(titleId: TitleId): URL {
+        val mediaPath = when (titleId.mediaKind) {
+            MediaKind.Movie -> "movie"
+            MediaKind.Series -> "tv"
+        }
+        return URL("${baseUrl.trimEnd('/')}/$mediaPath/${titleId.tmdbId}/external_ids")
+    }
+
+    override fun fetchExternalIds(titleId: TitleId): Map<String, String> {
+        check(readAccessToken.isNotBlank()) { "TMDb read access token is missing" }
+        return TmdbExternalIdParser.parse(executeGet(externalIdsUrl(titleId)))
+    }
+
     private fun executeGet(url: URL): String {
         val connection = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
@@ -147,6 +165,16 @@ class TmdbDiscoverClient(
 
     companion object {
         private const val DEFAULT_BASE_URL = "https://api.themoviedb.org/3"
+    }
+}
+
+object TmdbExternalIdParser {
+    fun parse(body: String): Map<String, String> {
+        val json = JSONObject(body)
+        return mapOf(
+            "imdb" to json.optString("imdb_id"),
+            "wikidata" to json.optString("wikidata_id"),
+        ).filterValues { it.isNotBlank() }
     }
 }
 

@@ -104,3 +104,4 @@ page or an install page, and successful content handoffs feed persistent Continu
 Milestone 3 now also includes a persistent local watchlist surfaced directly after Continue Watching,
 manual removal from Continue Watching and independent watched history.
 Milestone 4 now uses source vote counts to keep tiny samples out of Highly Rated and to discover Hidden Gems on the live catalogue.
+TMDb titles also retain explicit IMDb and Wikidata identifiers for source-safe rating enrichment.

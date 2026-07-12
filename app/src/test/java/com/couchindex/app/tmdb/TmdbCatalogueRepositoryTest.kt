@@ -123,4 +123,37 @@ class TmdbCatalogueRepositoryTest {
 
         assertEquals(listOf("TMDb", "IMDb"), title.ratings.map { it.source })
     }
+
+    @Test
+    fun `adds explicit external identifiers without fuzzy matching`() = runBlocking {
+        val item = TmdbDiscoverItem(
+            tmdbId = 42,
+            mediaKind = MediaKind.Movie,
+            name = "Shared Movie",
+            year = 2025,
+            overview = "Available from both subscriptions.",
+            posterPath = null,
+            voteAverage = 8.1,
+            voteCount = 12_400,
+        )
+        val repository = TmdbCatalogueRepository(
+            source = TmdbDiscoverSource { query ->
+                TmdbDiscoverPage(
+                    page = 1,
+                    totalPages = 1,
+                    totalResults = if (query.mediaType == TmdbDiscoverMediaType.Movie) 1 else 0,
+                    results = if (query.mediaType == TmdbDiscoverMediaType.Movie) listOf(item) else emptyList(),
+                )
+            },
+            providers = providers,
+            externalIdSource = TmdbExternalIdSource { titleId ->
+                assertEquals(item.tmdbId, titleId.tmdbId)
+                mapOf("imdb" to "tt1234567")
+            },
+        )
+
+        val title = repository.discoverSubscriptionTitles("DK", setOf("netflix")).single()
+
+        assertEquals("tt1234567", title.externalIds["imdb"])
+    }
 }
