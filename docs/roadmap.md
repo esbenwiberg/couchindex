@@ -28,10 +28,10 @@
 
 ## Milestone 4: rating enrichment
 
-- IMDb rating import or lookup
-- Vote counts
-- Additional rating adapter
-- Quality-oriented browse filters
+- [ ] IMDb rating import or lookup
+- [x] TMDb vote counts
+- [ ] Additional rating adapter
+- [x] Vote-aware quality browse filters
 
 ## Later investigations
 

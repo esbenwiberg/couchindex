@@ -1,6 +1,8 @@
 package com.couchindex.core
 
-class BuildHomeRows {
+class BuildHomeRows(
+    private val ratingQualityPolicy: RatingQualityPolicy = RatingQualityPolicy(),
+) {
     fun invoke(
         catalogue: List<Title>,
         subscriptions: List<Subscription>,
@@ -44,7 +46,7 @@ class BuildHomeRows {
             BrowseRow(
                 id = "highly-rated",
                 label = "Highly Rated",
-                titles = availableTitles.sortedByDescending { it.bestRatingConfidence() }.take(12),
+                titles = ratingQualityPolicy.highlyRated(availableTitles),
             ),
             BrowseRow(
                 id = "movies",
@@ -64,7 +66,7 @@ class BuildHomeRows {
             BrowseRow(
                 id = "hidden-gems",
                 label = "Hidden Gems",
-                titles = availableTitles.filter { it.isHiddenGem },
+                titles = ratingQualityPolicy.hiddenGems(availableTitles),
             ),
         ).filter { row -> row.id == "continue-watching" || row.titles.isNotEmpty() }
     }
@@ -73,11 +75,4 @@ class BuildHomeRows {
         title.mediaKind == MediaKind.Movie &&
             title.runtimeMinutes != null &&
             title.runtimeMinutes <= 120
-
-    private fun Title.bestRatingConfidence(): Double =
-        ratings.maxOfOrNull { rating ->
-            val normalized = rating.value / rating.scale
-            val confidence = rating.voteCount?.let { votes -> kotlin.math.log10(votes.coerceAtLeast(1).toDouble()) } ?: 0.0
-            normalized * confidence
-        } ?: 0.0
 }

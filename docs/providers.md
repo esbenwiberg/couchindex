@@ -20,6 +20,8 @@ Every rating retains:
 - scope: title, season or episode
 - retrieval timestamp
 
+`Highly Rated` requires a normalized score of at least 7/10 backed by at least 100 votes, then ranks by score and logarithmic vote confidence. `Hidden Gems` uses the same score floor with 100 to 5,000 votes, while retaining explicit editorial flags for offline sample data. These are internal browse rules, never presented as an external consensus score.
+
 ## Playback handoff
 
 CouchIndex does not retrieve or play protected streams. A launch resolver selects the best available destination for the device:
