@@ -21,7 +21,7 @@ class TmdbCatalogueRepository(
     providers: List<Provider>,
     private val retrievedAt: () -> String = { Instant.now().toString() },
 ) : CatalogueRepository {
-    private val providerNames = providers.associate { it.id to it.name }
+    private val providersById = providers.associateBy { it.id }
     private val tmdbProviderIds = providers.mapNotNull { provider ->
         provider.tmdbProviderId?.let { provider.id to it }
     }.toMap()
@@ -72,9 +72,12 @@ class TmdbCatalogueRepository(
                     },
                     ratings = item.tmdbRating(timestamp),
                     launchTargets = matchedProviderIds.map { providerId ->
+                        val provider = providersById[providerId]
                         LaunchTarget(
                             providerId = providerId,
-                            label = "Open in ${providerNames[providerId] ?: providerId}",
+                            label = provider?.name ?: providerId,
+                            uri = titleId.tmdbWatchUri(region),
+                            androidPackageName = provider?.androidPackageName,
                         )
                     },
                 )
@@ -100,4 +103,12 @@ class TmdbCatalogueRepository(
         val item: TmdbDiscoverItem,
         val providerId: String,
     )
+
+    private fun TitleId.tmdbWatchUri(region: String): String {
+        val mediaPath = when (mediaKind) {
+            MediaKind.Movie -> "movie"
+            MediaKind.Series -> "tv"
+        }
+        return "https://www.themoviedb.org/$mediaPath/$tmdbId/watch?locale=$region"
+    }
 }

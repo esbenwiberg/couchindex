@@ -9,7 +9,12 @@ import org.junit.Test
 
 class TmdbCatalogueRepositoryTest {
     private val providers = listOf(
-        Provider(id = "netflix", name = "Netflix", tmdbProviderId = 8),
+        Provider(
+            id = "netflix",
+            name = "Netflix",
+            tmdbProviderId = 8,
+            androidPackageName = "com.netflix.ninja",
+        ),
         Provider(id = "disney", name = "Disney+", tmdbProviderId = 337),
     )
 
@@ -46,7 +51,12 @@ class TmdbCatalogueRepositoryTest {
 
         assertEquals(1, titles.size)
         assertEquals(setOf("netflix", "disney"), titles.single().offers.map { it.providerId }.toSet())
-        assertEquals(listOf("Open in Netflix", "Open in Disney+"), titles.single().launchTargets.map { it.label })
+        assertEquals(listOf("Netflix", "Disney+"), titles.single().launchTargets.map { it.label })
+        assertEquals(
+            "https://www.themoviedb.org/movie/42/watch?locale=DK",
+            titles.single().launchTargets.first().uri,
+        )
+        assertEquals("com.netflix.ninja", titles.single().launchTargets.first().androidPackageName)
         assertEquals(8.1, titles.single().ratings.single().value, 0.0)
         assertEquals(12_400, titles.single().ratings.single().voteCount)
     }

@@ -49,6 +49,8 @@ import com.couchindex.app.config.AppConfig
 import com.couchindex.app.config.AppConfigLoader
 import com.couchindex.app.launch.AndroidProviderLauncher
 import com.couchindex.app.launch.ProviderLaunchResult
+import com.couchindex.app.launch.RecentLaunchStore
+import com.couchindex.app.launch.ResolvedProviderLaunch
 import com.couchindex.app.settings.SubscriptionStore
 import com.couchindex.app.tmdb.TmdbCatalogueRepository
 import com.couchindex.app.tmdb.TmdbDiscoverClient
@@ -98,6 +100,7 @@ private fun CouchIndexApp() {
     val context = LocalContext.current
     val appConfig = remember { AppConfigLoader.load() }
     val providerLauncher = remember(context) { AndroidProviderLauncher(context) }
+    val recentLaunchStore = remember(context) { RecentLaunchStore(context) }
     val subscriptionStore = remember(context) { SubscriptionStore(context) }
     val tmdbClient = remember(appConfig.tmdbReadAccessToken) { TmdbDiscoverClient(appConfig.tmdbReadAccessToken) }
     val providerDirectory = remember(tmdbClient) {
@@ -107,6 +110,10 @@ private fun CouchIndexApp() {
     var providerDirectoryReady by remember { mutableStateOf(!appConfig.hasTmdbReadAccessToken) }
     val subscriptions = remember {
         mutableStateListOf(*subscriptionStore.load(SampleCatalogue.subscriptions).toTypedArray())
+    }
+    val recentLaunches = remember {
+        val initial = if (appConfig.hasTmdbReadAccessToken) recentLaunchStore.load() else SampleCatalogue.recentLaunches
+        mutableStateListOf(*initial.toTypedArray())
     }
     var catalogue by remember { mutableStateOf(SampleCatalogue.titles) }
     var catalogueStatus by remember {
@@ -123,7 +130,7 @@ private fun CouchIndexApp() {
             rowBuilder.invoke(
                 catalogue = catalogue,
                 subscriptions = subscriptions,
-                recentLaunches = SampleCatalogue.recentLaunches,
+                recentLaunches = recentLaunches,
             )
         }
     }
@@ -240,18 +247,21 @@ private fun CouchIndexApp() {
                 subscriptions = subscriptions,
                 selectedTitle = selectedTitle,
                 onTitleSelected = { selectedTitle = it },
-                onLaunchTargetSelected = { target ->
+                resolveLaunchTarget = providerLauncher::resolve,
+                onLaunchTargetSelected = { title, target ->
                     when (providerLauncher.launch(target)) {
-                        ProviderLaunchResult.Launched -> Unit
-                        ProviderLaunchResult.MissingTarget,
-                        ProviderLaunchResult.MissingUri -> Toast.makeText(
-                            context,
-                            "Launch target pending",
-                            Toast.LENGTH_SHORT,
-                        ).show()
+                        ProviderLaunchResult.ProviderAppLaunched,
+                        ProviderLaunchResult.WatchOptionsLaunched,
+                        -> {
+                            recentLaunches.clear()
+                            recentLaunches.addAll(recentLaunchStore.record(title.id))
+                        }
+
+                        ProviderLaunchResult.InstallPageLaunched ->
+                            Toast.makeText(context, "Opening provider install page", Toast.LENGTH_SHORT).show()
 
                         ProviderLaunchResult.ActivityUnavailable ->
-                            Toast.makeText(context, "No app can open this target", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "No launch option available", Toast.LENGTH_SHORT).show()
                     }
                 },
                 onSubscriptionToggle = { providerId ->
@@ -320,7 +330,8 @@ private fun MainSurface(
     subscriptions: List<Subscription>,
     selectedTitle: Title?,
     onTitleSelected: (Title) -> Unit,
-    onLaunchTargetSelected: (LaunchTarget?) -> Unit,
+    resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
+    onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onSubscriptionToggle: (String) -> Unit,
 ) {
     Row(
@@ -357,6 +368,7 @@ private fun MainSurface(
         DetailsPanel(
             title = selectedTitle,
             providers = providers,
+            resolveLaunchTarget = resolveLaunchTarget,
             onLaunchTargetSelected = onLaunchTargetSelected,
         )
     }
@@ -655,7 +667,8 @@ private fun BrowseListItem(
 private fun DetailsPanel(
     title: Title?,
     providers: List<Provider>,
-    onLaunchTargetSelected: (LaunchTarget?) -> Unit,
+    resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
+    onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -700,17 +713,33 @@ private fun DetailsPanel(
             text = listOfNotNull(title.mediaKind.label, title.year?.toString(), title.runtimeLabel()).joinToString(" / "),
             style = TextStyle(color = Color(0xFFA8B3B7), fontSize = 14.sp),
         )
-        FocusButton(
-            label = title.launchTargets.firstOrNull()?.label ?: "No launch target",
-            selected = true,
-            onClick = { onLaunchTargetSelected(title.launchTargets.firstOrNull()) },
-        )
-        BasicText(
-            text = title.synopsis,
-            style = TextStyle(color = Color(0xFFD4DADB), fontSize = 14.sp),
-        )
+        val launchOptions = title.launchTargets
+            .map { target -> target to resolveLaunchTarget(target) }
+            .distinctBy { (_, resolved) -> listOf(resolved.mode, resolved.label, resolved.uri) }
+
+        if (launchOptions.isEmpty()) {
+            FocusButton(
+                label = resolveLaunchTarget(null).label,
+                selected = true,
+                onClick = { onLaunchTargetSelected(title, null) },
+            )
+        } else {
+            launchOptions.take(3).forEachIndexed { index, (target, resolved) ->
+                FocusButton(
+                    label = resolved.label,
+                    selected = index == 0,
+                    onClick = { onLaunchTargetSelected(title, target) },
+                )
+            }
+        }
         LabelBlock(label = "Available on", value = title.providerLabels(providers).joinToString(" / "))
         RatingStack(ratings = title.ratings)
+        BasicText(
+            text = title.synopsis,
+            maxLines = 4,
+            overflow = TextOverflow.Ellipsis,
+            style = TextStyle(color = Color(0xFFD4DADB), fontSize = 14.sp),
+        )
     }
 }
 

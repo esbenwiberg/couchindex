@@ -16,14 +16,14 @@
 - [x] Subscription configuration with local persistence
 - [x] Browse rows and title details
 - [x] Provider launch handoff boundary
-- [ ] Provider-specific deep-link resolution
+- [x] Provider app, title watch-page and install fallback resolution
 
 ## Milestone 3: personal state
 
-- Local watchlist
-- Recent launches
-- Continue Watching as the first row
-- Manual watched and remove actions
+- [ ] Local watchlist
+- [x] Persistent recent launches
+- [x] Continue Watching derived from recent launches
+- [ ] Manual watched and remove actions
 
 ## Milestone 4: rating enrichment
 
@@ -35,6 +35,7 @@
 ## Later investigations
 
 - Media-session playback observation
+- Exact title and episode deep links where provider support permits
 - Usage-based completion heuristics
 - Phone companion
 - Trakt or Letterboxd integration

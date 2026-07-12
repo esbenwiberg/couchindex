@@ -28,6 +28,7 @@ data class Provider(
     val shortName: String = name,
     val tmdbProviderId: Int? = null,
     val displayPriority: Int = Int.MAX_VALUE,
+    val androidPackageName: String? = null,
 )
 
 data class Offer(
@@ -40,6 +41,7 @@ data class LaunchTarget(
     val providerId: String,
     val label: String,
     val uri: String? = null,
+    val androidPackageName: String? = null,
 )
 
 data class Rating(
@@ -60,6 +62,7 @@ data class RecentLaunch(
     val titleId: TitleId,
     val launchedAtLabel: String,
     val nextEpisodeLabel: String? = null,
+    val launchedAtEpochMillis: Long? = null,
 )
 
 data class Title(

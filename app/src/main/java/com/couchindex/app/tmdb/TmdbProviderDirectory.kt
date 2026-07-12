@@ -31,6 +31,7 @@ class TmdbProviderDirectory(
                     shortName = fallback?.shortName ?: provider.name,
                     tmdbProviderId = tmdbProviderId,
                     displayPriority = provider.displayPriority,
+                    androidPackageName = fallback?.androidPackageName,
                 )
             }
             .sortedWith(compareBy<Provider> { it.displayPriority }.thenBy { it.name })

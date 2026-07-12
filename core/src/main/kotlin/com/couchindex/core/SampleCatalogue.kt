@@ -2,10 +2,30 @@ package com.couchindex.core
 
 object SampleCatalogue {
     val providers = listOf(
-        Provider(id = "netflix", name = "Netflix", tmdbProviderId = 8),
-        Provider(id = "disney", name = "Disney+", tmdbProviderId = 337),
-        Provider(id = "max", name = "Max", tmdbProviderId = 1899),
-        Provider(id = "viaplay", name = "Viaplay", tmdbProviderId = 76),
+        Provider(
+            id = "netflix",
+            name = "Netflix",
+            tmdbProviderId = 8,
+            androidPackageName = "com.netflix.ninja",
+        ),
+        Provider(
+            id = "disney",
+            name = "Disney+",
+            tmdbProviderId = 337,
+            androidPackageName = "com.disney.disneyplus",
+        ),
+        Provider(
+            id = "max",
+            name = "Max",
+            tmdbProviderId = 1899,
+            androidPackageName = "com.wbd.stream",
+        ),
+        Provider(
+            id = "viaplay",
+            name = "Viaplay",
+            tmdbProviderId = 76,
+            androidPackageName = "com.viaplay.android",
+        ),
     )
 
     val subscriptions = listOf(
@@ -112,9 +132,11 @@ object SampleCatalogue {
 
     private fun launchTargets(vararg providerIds: String): List<LaunchTarget> =
         providerIds.map { providerId ->
+            val provider = providers.first { it.id == providerId }
             LaunchTarget(
                 providerId = providerId,
-                label = "Open in ${providerName(providerId)}",
+                label = provider.name,
+                androidPackageName = provider.androidPackageName,
             )
         }
 
