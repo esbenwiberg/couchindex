@@ -266,7 +266,7 @@ private fun ScreenHeader(
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             BasicText(
                 text = destination.label,
                 style = TextStyle(
@@ -282,6 +282,9 @@ private fun ScreenHeader(
         }
         BasicText(
             text = enabledProviders.ifBlank { "No providers enabled" },
+            modifier = Modifier.padding(start = 24.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             style = TextStyle(color = Color(0xFFE8C468), fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
         )
     }
@@ -542,7 +545,7 @@ private fun DetailsPanel(
             .background(Color(0xE6111518))
             .border(1.dp, Color(0xFF2B363A), RoundedCornerShape(8.dp))
             .padding(22.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (title == null) {
             BasicText(
@@ -559,7 +562,7 @@ private fun DetailsPanel(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(150.dp)
+                .height(120.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(posterColor(title)),
             contentAlignment = Alignment.Center,
@@ -577,17 +580,17 @@ private fun DetailsPanel(
             text = listOfNotNull(title.mediaKind.label, title.year?.toString(), title.runtimeLabel()).joinToString(" / "),
             style = TextStyle(color = Color(0xFFA8B3B7), fontSize = 14.sp),
         )
+        FocusButton(
+            label = title.launchTargets.firstOrNull()?.label ?: "No launch target",
+            selected = true,
+            onClick = { onLaunchTargetSelected(title.launchTargets.firstOrNull()) },
+        )
         BasicText(
             text = title.synopsis,
             style = TextStyle(color = Color(0xFFD4DADB), fontSize = 14.sp),
         )
         LabelBlock(label = "Available on", value = title.providerLabels(providers).joinToString(" / "))
         RatingStack(ratings = title.ratings)
-        FocusButton(
-            label = title.launchTargets.firstOrNull()?.label ?: "No launch target",
-            selected = true,
-            onClick = { onLaunchTargetSelected(title.launchTargets.firstOrNull()) },
-        )
     }
 }
 
