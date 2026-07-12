@@ -24,7 +24,7 @@ import kotlinx.coroutines.withContext
 class TmdbCatalogueRepository(
     private val source: TmdbDiscoverSource,
     providers: List<Provider>,
-    private val externalIdSource: TmdbExternalIdSource? = source as? TmdbExternalIdSource,
+    private val titleDetailsSource: TmdbTitleDetailsSource? = source as? TmdbTitleDetailsSource,
     ratingAdapters: List<RatingAdapter> = emptyList(),
     batchRatingAdapters: List<BatchRatingAdapter> = emptyList(),
     private val retrievedAt: () -> String = { Instant.now().toString() },
@@ -57,25 +57,27 @@ class TmdbCatalogueRepository(
         }
 
         val titles = mergeOffers(requests.awaitAll().flatten(), region)
-        val idSource = externalIdSource
-        val identifiedTitles = if (idSource == null) {
+        val detailsSource = titleDetailsSource
+        val detailedTitles = if (detailsSource == null) {
             titles
         } else {
             buildList {
-                for (batch in titles.chunked(EXTERNAL_ID_CONCURRENCY)) {
+                for (batch in titles.chunked(TITLE_DETAILS_CONCURRENCY)) {
                     addAll(
                         batch.map { title ->
                             async(Dispatchers.IO) {
-                                val externalIds = runCatching { idSource.fetchExternalIds(title.id) }
-                                    .getOrDefault(emptyMap())
-                                title.copy(externalIds = externalIds)
+                                val details = runCatching { detailsSource.fetchTitleDetails(title.id) }.getOrNull()
+                                title.copy(
+                                    externalIds = details?.externalIds.orEmpty(),
+                                    runtimeMinutes = details?.runtimeMinutes,
+                                )
                             }
                         }.awaitAll(),
                     )
                 }
             }
         }
-        val individuallyEnriched = identifiedTitles.map(enrichTitleRatings::invoke)
+        val individuallyEnriched = detailedTitles.map(enrichTitleRatings::invoke)
         withContext(Dispatchers.IO) { enrichTitleBatchRatings.invoke(individuallyEnriched) }
     }
 
@@ -144,7 +146,7 @@ class TmdbCatalogueRepository(
     }
 
     companion object {
-        private const val EXTERNAL_ID_CONCURRENCY = 8
+        private const val TITLE_DETAILS_CONCURRENCY = 8
         private const val TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
     }
 }

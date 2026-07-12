@@ -36,7 +36,7 @@
 ## Milestone 5: catalogue experience
 
 - [x] Real TMDb artwork with cached loading and resilient fallbacks
-- [ ] Runtime metadata
+- [x] Runtime metadata
 - [ ] Cross-provider search
 
 ## Later investigations

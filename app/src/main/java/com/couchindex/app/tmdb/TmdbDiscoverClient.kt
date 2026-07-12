@@ -79,14 +79,19 @@ fun interface TmdbProviderSource {
     fun fetchWatchProviders(mediaType: TmdbProviderMediaType, region: String): List<TmdbWatchProvider>
 }
 
-fun interface TmdbExternalIdSource {
-    fun fetchExternalIds(titleId: TitleId): Map<String, String>
+data class TmdbTitleDetails(
+    val externalIds: Map<String, String>,
+    val runtimeMinutes: Int?,
+)
+
+fun interface TmdbTitleDetailsSource {
+    fun fetchTitleDetails(titleId: TitleId): TmdbTitleDetails
 }
 
 class TmdbDiscoverClient(
     private val readAccessToken: String,
     private val baseUrl: String = DEFAULT_BASE_URL,
-) : TmdbDiscoverSource, TmdbProviderSource, TmdbExternalIdSource {
+) : TmdbDiscoverSource, TmdbProviderSource, TmdbTitleDetailsSource {
     fun discoverUrl(query: TmdbDiscoverQuery): URL {
         val params = listOf(
             "language" to query.language,
@@ -124,17 +129,21 @@ class TmdbDiscoverClient(
         return TmdbProviderParser.parse(executeGet(watchProvidersUrl(mediaType, region)), region)
     }
 
-    fun externalIdsUrl(titleId: TitleId): URL {
+    fun titleDetailsUrl(titleId: TitleId): URL {
         val mediaPath = when (titleId.mediaKind) {
             MediaKind.Movie -> "movie"
             MediaKind.Series -> "tv"
         }
-        return URL("${baseUrl.trimEnd('/')}/$mediaPath/${titleId.tmdbId}/external_ids")
+        val params = listOf(
+            "append_to_response" to "external_ids",
+            "language" to "en-US",
+        )
+        return URL("${baseUrl.trimEnd('/')}/$mediaPath/${titleId.tmdbId}?${params.toQueryString()}")
     }
 
-    override fun fetchExternalIds(titleId: TitleId): Map<String, String> {
+    override fun fetchTitleDetails(titleId: TitleId): TmdbTitleDetails {
         check(readAccessToken.isNotBlank()) { "TMDb read access token is missing" }
-        return TmdbExternalIdParser.parse(executeGet(externalIdsUrl(titleId)))
+        return TmdbTitleDetailsParser.parse(executeGet(titleDetailsUrl(titleId)), titleId.mediaKind)
     }
 
     private fun executeGet(url: URL): String {
@@ -168,13 +177,29 @@ class TmdbDiscoverClient(
     }
 }
 
-object TmdbExternalIdParser {
-    fun parse(body: String): Map<String, String> {
+object TmdbTitleDetailsParser {
+    fun parse(body: String, mediaKind: MediaKind): TmdbTitleDetails {
         val json = JSONObject(body)
-        return mapOf(
-            "imdb" to json.optString("imdb_id"),
-            "wikidata" to json.optString("wikidata_id"),
-        ).filterValues { it.isNotBlank() }
+        val externalIds = json.optJSONObject("external_ids") ?: JSONObject()
+        val runtimeMinutes = when (mediaKind) {
+            MediaKind.Movie -> json.optInt("runtime").takeIf { it > 0 }
+            MediaKind.Series -> json.optJSONArray("episode_run_time")
+                ?.let { runtimes ->
+                    (0 until runtimes.length())
+                        .map { runtimes.optInt(it) }
+                        .firstOrNull { it > 0 }
+                }
+                ?: json.optJSONObject("last_episode_to_air")
+                    ?.optInt("runtime")
+                    ?.takeIf { it > 0 }
+        }
+        return TmdbTitleDetails(
+            externalIds = mapOf(
+                "imdb" to externalIds.optString("imdb_id"),
+                "wikidata" to externalIds.optString("wikidata_id"),
+            ).filterValues { it.isNotBlank() },
+            runtimeMinutes = runtimeMinutes,
+        )
     }
 }
 

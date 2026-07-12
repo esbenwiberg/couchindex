@@ -147,14 +147,18 @@ class TmdbCatalogueRepositoryTest {
                 )
             },
             providers = providers,
-            externalIdSource = TmdbExternalIdSource { titleId ->
+            titleDetailsSource = TmdbTitleDetailsSource { titleId ->
                 assertEquals(item.tmdbId, titleId.tmdbId)
-                mapOf("imdb" to "tt1234567")
+                TmdbTitleDetails(
+                    externalIds = mapOf("imdb" to "tt1234567"),
+                    runtimeMinutes = 121,
+                )
             },
         )
 
         val title = repository.discoverSubscriptionTitles("DK", setOf("netflix")).single()
 
         assertEquals("tt1234567", title.externalIds["imdb"])
+        assertEquals(121, title.runtimeMinutes)
     }
 }
