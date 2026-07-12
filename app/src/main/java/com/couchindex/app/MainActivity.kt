@@ -142,6 +142,7 @@ private fun CouchIndexApp() {
         }
     }
     val watchlistedTitleIds = watchlistEntries.map { it.titleId }.toSet()
+    val recentTitleIds = recentLaunches.map { it.titleId }.toSet()
     val enabledProviderIds = subscriptions.filter { it.enabled }.map { it.providerId }.toSet()
     val providerSignature = providers.map { it.id to it.tmdbProviderId }
 
@@ -255,6 +256,7 @@ private fun CouchIndexApp() {
                 subscriptions = subscriptions,
                 selectedTitle = selectedTitle,
                 watchlistedTitleIds = watchlistedTitleIds,
+                recentTitleIds = recentTitleIds,
                 onTitleSelected = { selectedTitle = it },
                 resolveLaunchTarget = providerLauncher::resolve,
                 onLaunchTargetSelected = { title, target ->
@@ -286,6 +288,10 @@ private fun CouchIndexApp() {
                     val isMember = title.id in watchlistedTitleIds
                     watchlistEntries.clear()
                     watchlistEntries.addAll(watchlistStore.setMembership(title.id, !isMember))
+                },
+                onContinueWatchingRemove = { title ->
+                    recentLaunches.clear()
+                    recentLaunches.addAll(recentLaunchStore.remove(title.id))
                 },
             )
         }
@@ -344,11 +350,13 @@ private fun MainSurface(
     subscriptions: List<Subscription>,
     selectedTitle: Title?,
     watchlistedTitleIds: Set<TitleId>,
+    recentTitleIds: Set<TitleId>,
     onTitleSelected: (Title) -> Unit,
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onSubscriptionToggle: (String) -> Unit,
     onWatchlistToggle: (Title) -> Unit,
+    onContinueWatchingRemove: (Title) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -385,9 +393,11 @@ private fun MainSurface(
             title = selectedTitle,
             providers = providers,
             isWatchlisted = selectedTitle?.id in watchlistedTitleIds,
+            isInContinueWatching = selectedTitle?.id in recentTitleIds,
             resolveLaunchTarget = resolveLaunchTarget,
             onLaunchTargetSelected = onLaunchTargetSelected,
             onWatchlistToggle = onWatchlistToggle,
+            onContinueWatchingRemove = onContinueWatchingRemove,
         )
     }
 }
@@ -686,9 +696,11 @@ private fun DetailsPanel(
     title: Title?,
     providers: List<Provider>,
     isWatchlisted: Boolean,
+    isInContinueWatching: Boolean,
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onWatchlistToggle: (Title) -> Unit,
+    onContinueWatchingRemove: (Title) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -698,7 +710,7 @@ private fun DetailsPanel(
             .background(Color(0xE6111518))
             .border(1.dp, Color(0xFF2B363A), RoundedCornerShape(8.dp))
             .padding(22.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (title == null) {
             BasicText(
@@ -715,7 +727,7 @@ private fun DetailsPanel(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(120.dp)
+                .height(105.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(posterColor(title)),
             contentAlignment = Alignment.Center,
@@ -757,6 +769,13 @@ private fun DetailsPanel(
             selected = false,
             onClick = { onWatchlistToggle(title) },
         )
+        if (isInContinueWatching) {
+            FocusButton(
+                label = "Remove from Continue Watching",
+                selected = false,
+                onClick = { onContinueWatchingRemove(title) },
+            )
+        }
         LabelBlock(label = "Available on", value = title.providerLabels(providers).joinToString(" / "))
         RatingStack(ratings = title.ratings)
         BasicText(

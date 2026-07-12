@@ -23,7 +23,8 @@
 - [x] Local watchlist
 - [x] Persistent recent launches
 - [x] Continue Watching derived from recent launches
-- [ ] Manual watched and remove actions
+- [x] Manual Continue Watching removal
+- [ ] Manual watched state
 
 ## Milestone 4: rating enrichment
 

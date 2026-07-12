@@ -101,4 +101,5 @@ catalogues from TMDb when a token is configured, merges per-provider availabilit
 title identity, and falls back to four starter providers plus sample titles when configuration or
 connectivity is unavailable. Provider launches now resolve to an installed TV app, a title watch
 page or an install page, and successful content handoffs feed persistent Continue Watching state.
-Milestone 3 now also includes a persistent local watchlist surfaced directly after Continue Watching.
+Milestone 3 now also includes a persistent local watchlist surfaced directly after Continue Watching,
+plus manual removal from Continue Watching.

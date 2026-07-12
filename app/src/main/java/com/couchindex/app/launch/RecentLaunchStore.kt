@@ -4,6 +4,7 @@ import android.content.Context
 import com.couchindex.core.MediaKind
 import com.couchindex.core.RecentLaunch
 import com.couchindex.core.RecordRecentLaunch
+import com.couchindex.core.RemoveRecentLaunch
 import com.couchindex.core.TitleId
 import org.json.JSONArray
 import org.json.JSONObject
@@ -11,6 +12,7 @@ import org.json.JSONObject
 class RecentLaunchStore(
     context: Context,
     private val recordRecentLaunch: RecordRecentLaunch = RecordRecentLaunch(),
+    private val removeRecentLaunch: RemoveRecentLaunch = RemoveRecentLaunch(),
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     private val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
@@ -23,11 +25,21 @@ class RecentLaunchStore(
 
     fun record(titleId: TitleId): List<RecentLaunch> {
         val updated = recordRecentLaunch.invoke(load(), titleId, clock())
+        save(updated)
+        return updated
+    }
+
+    fun remove(titleId: TitleId): List<RecentLaunch> {
+        val updated = removeRecentLaunch.invoke(load(), titleId)
+        save(updated)
+        return updated
+    }
+
+    private fun save(updated: List<RecentLaunch>) {
         val array = JSONArray().apply {
             updated.forEach { launch -> put(launch.toJson()) }
         }
         preferences.edit().putString(KEY_HISTORY, array.toString()).apply()
-        return updated
     }
 
     private fun JSONObject.toRecentLaunch(): RecentLaunch? {
