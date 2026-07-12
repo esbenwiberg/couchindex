@@ -89,6 +89,7 @@ data class Title(
     val isHiddenGem: Boolean = false,
     val externalIds: Map<String, String> = emptyMap(),
     val posterUrl: String? = null,
+    val genreIds: Set<Int> = emptySet(),
 )
 
 data class BrowseRow(

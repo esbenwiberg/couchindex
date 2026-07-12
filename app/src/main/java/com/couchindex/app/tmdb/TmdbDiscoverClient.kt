@@ -63,6 +63,7 @@ data class TmdbDiscoverItem(
     val posterPath: String?,
     val voteAverage: Double?,
     val voteCount: Int?,
+    val genreIds: Set<Int> = emptySet(),
 )
 
 data class TmdbWatchProvider(
@@ -252,6 +253,14 @@ object TmdbDiscoverParser {
             posterPath = nullableString("poster_path"),
             voteAverage = optionalDouble("vote_average"),
             voteCount = optInt("vote_count").takeIf { it > 0 },
+            genreIds = optJSONArray("genre_ids")
+                ?.let { genres ->
+                    (0 until genres.length())
+                        .map { index -> genres.optInt(index) }
+                        .filter { it > 0 }
+                        .toSet()
+                }
+                .orEmpty(),
         )
     }
 
