@@ -52,6 +52,7 @@ import com.couchindex.app.launch.ProviderLaunchResult
 import com.couchindex.app.settings.SubscriptionStore
 import com.couchindex.app.tmdb.TmdbCatalogueRepository
 import com.couchindex.app.tmdb.TmdbDiscoverClient
+import com.couchindex.app.tmdb.TmdbProviderDirectory
 import com.couchindex.core.BrowseRow
 import com.couchindex.core.BuildHomeRows
 import com.couchindex.core.LaunchTarget
@@ -90,13 +91,12 @@ private fun CouchIndexApp() {
     val appConfig = remember { AppConfigLoader.load() }
     val providerLauncher = remember(context) { AndroidProviderLauncher(context) }
     val subscriptionStore = remember(context) { SubscriptionStore(context) }
-    val providers = remember { SampleCatalogue.providers }
-    val catalogueRepository = remember(appConfig.tmdbReadAccessToken) {
-        TmdbCatalogueRepository(
-            source = TmdbDiscoverClient(appConfig.tmdbReadAccessToken),
-            providers = providers,
-        )
+    val tmdbClient = remember(appConfig.tmdbReadAccessToken) { TmdbDiscoverClient(appConfig.tmdbReadAccessToken) }
+    val providerDirectory = remember(tmdbClient) {
+        TmdbProviderDirectory(source = tmdbClient, fallbackProviders = SampleCatalogue.providers)
     }
+    var providers by remember { mutableStateOf(SampleCatalogue.providers) }
+    var providerDirectoryReady by remember { mutableStateOf(!appConfig.hasTmdbReadAccessToken) }
     val subscriptions = remember {
         mutableStateListOf(*subscriptionStore.load(SampleCatalogue.subscriptions).toTypedArray())
     }
@@ -120,16 +120,55 @@ private fun CouchIndexApp() {
         }
     }
     val enabledProviderIds = subscriptions.filter { it.enabled }.map { it.providerId }.toSet()
+    val providerSignature = providers.map { it.id to it.tmdbProviderId }
 
     var destination by remember { mutableStateOf(Destination.Home) }
     var selectedTitle by remember { mutableStateOf<Title?>(null) }
 
-    LaunchedEffect(appConfig.hasTmdbReadAccessToken, enabledProviderIds) {
+    LaunchedEffect(appConfig.hasTmdbReadAccessToken) {
+        if (!appConfig.hasTmdbReadAccessToken) {
+            providers = SampleCatalogue.providers
+            providerDirectoryReady = true
+            return@LaunchedEffect
+        }
+
+        providerDirectoryReady = false
+        catalogueStatus = CatalogueStatus("Loading Danish provider directory", "Loading", highlighted = true)
+        runCatching { providerDirectory.fetchProviders("DK") }
+            .onSuccess { discoveredProviders ->
+                if (discoveredProviders.isNotEmpty()) {
+                    val currentSubscriptions = subscriptions.associate { it.providerId to it.enabled }
+                    val sampleDefaults = SampleCatalogue.subscriptions.associate { it.providerId to it.enabled }
+                    val defaults = discoveredProviders.map { provider ->
+                        Subscription(
+                            providerId = provider.id,
+                            enabled = currentSubscriptions[provider.id] ?: sampleDefaults[provider.id] ?: false,
+                        )
+                    }
+                    providers = discoveredProviders
+                    subscriptions.clear()
+                    subscriptions.addAll(subscriptionStore.load(defaults))
+                }
+            }
+            .onFailure {
+                providers = SampleCatalogue.providers
+            }
+        providerDirectoryReady = true
+    }
+
+    LaunchedEffect(
+        appConfig.hasTmdbReadAccessToken,
+        providerDirectoryReady,
+        enabledProviderIds,
+        providerSignature,
+    ) {
         if (!appConfig.hasTmdbReadAccessToken) {
             catalogue = SampleCatalogue.titles
             catalogueStatus = CatalogueStatus("Using sample catalogue", "Local", highlighted = false)
             return@LaunchedEffect
         }
+
+        if (!providerDirectoryReady) return@LaunchedEffect
 
         if (enabledProviderIds.isEmpty()) {
             catalogue = emptyList()
@@ -139,7 +178,10 @@ private fun CouchIndexApp() {
 
         catalogueStatus = CatalogueStatus("Refreshing Danish availability", "Loading", highlighted = true)
         runCatching {
-            catalogueRepository.discoverSubscriptionTitles(
+            TmdbCatalogueRepository(
+                source = tmdbClient,
+                providers = providers,
+            ).discoverSubscriptionTitles(
                 region = "DK",
                 providerIds = enabledProviderIds,
             )

@@ -26,6 +26,8 @@ data class Provider(
     val id: String,
     val name: String,
     val shortName: String = name,
+    val tmdbProviderId: Int? = null,
+    val displayPriority: Int = Int.MAX_VALUE,
 )
 
 data class Offer(

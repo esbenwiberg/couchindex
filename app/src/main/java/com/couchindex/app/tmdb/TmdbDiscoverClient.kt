@@ -27,6 +27,11 @@ enum class TmdbDiscoverMediaType(
     ),
 }
 
+enum class TmdbProviderMediaType(val path: String) {
+    Movie("watch/providers/movie"),
+    Tv("watch/providers/tv"),
+}
+
 data class TmdbDiscoverQuery(
     val mediaType: TmdbDiscoverMediaType,
     val region: String = "DK",
@@ -59,14 +64,24 @@ data class TmdbDiscoverItem(
     val voteCount: Int?,
 )
 
+data class TmdbWatchProvider(
+    val tmdbProviderId: Int,
+    val name: String,
+    val displayPriority: Int,
+)
+
 fun interface TmdbDiscoverSource {
     fun fetchDiscoverPage(query: TmdbDiscoverQuery): TmdbDiscoverPage
+}
+
+fun interface TmdbProviderSource {
+    fun fetchWatchProviders(mediaType: TmdbProviderMediaType, region: String): List<TmdbWatchProvider>
 }
 
 class TmdbDiscoverClient(
     private val readAccessToken: String,
     private val baseUrl: String = DEFAULT_BASE_URL,
-) : TmdbDiscoverSource {
+) : TmdbDiscoverSource, TmdbProviderSource {
     fun discoverUrl(query: TmdbDiscoverQuery): URL {
         val params = listOf(
             "language" to query.language,
@@ -85,6 +100,23 @@ class TmdbDiscoverClient(
             body = executeGet(discoverUrl(query)),
             mediaType = query.mediaType,
         )
+    }
+
+    fun watchProvidersUrl(mediaType: TmdbProviderMediaType, region: String): URL {
+        require(region.isNotBlank()) { "region must not be blank" }
+        val params = listOf(
+            "language" to "en-US",
+            "watch_region" to region,
+        )
+        return URL("${baseUrl.trimEnd('/')}/${mediaType.path}?${params.toQueryString()}")
+    }
+
+    override fun fetchWatchProviders(
+        mediaType: TmdbProviderMediaType,
+        region: String,
+    ): List<TmdbWatchProvider> {
+        check(readAccessToken.isNotBlank()) { "TMDb read access token is missing" }
+        return TmdbProviderParser.parse(executeGet(watchProvidersUrl(mediaType, region)), region)
     }
 
     private fun executeGet(url: URL): String {
@@ -115,6 +147,26 @@ class TmdbDiscoverClient(
 
     companion object {
         private const val DEFAULT_BASE_URL = "https://api.themoviedb.org/3"
+    }
+}
+
+object TmdbProviderParser {
+    fun parse(body: String, region: String): List<TmdbWatchProvider> {
+        val results = JSONObject(body).optJSONArray("results") ?: JSONArray()
+        return (0 until results.length()).mapNotNull { index ->
+            results.optJSONObject(index)?.toWatchProvider(region)
+        }
+    }
+
+    private fun JSONObject.toWatchProvider(region: String): TmdbWatchProvider? {
+        val providerId = optInt("provider_id").takeIf { it > 0 } ?: return null
+        val name = optString("provider_name").takeIf { it.isNotBlank() } ?: return null
+        val regionalPriority = optJSONObject("display_priorities")?.optInt(region, Int.MAX_VALUE)
+        return TmdbWatchProvider(
+            tmdbProviderId = providerId,
+            name = name,
+            displayPriority = regionalPriority ?: optInt("display_priority", Int.MAX_VALUE),
+        )
     }
 }
 

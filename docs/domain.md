@@ -11,6 +11,8 @@ Children of a series. Episode-level identity is optional in early V1 flows but t
 ### Provider
 A streaming service such as Netflix, Disney+, Max or Viaplay.
 
+Providers retain their external TMDb provider identity. The app discovers the regional directory dynamically; built-in providers exist only as offline defaults.
+
 ### Offer
 A title's availability from a provider in a region and monetization type, such as subscription, rental or purchase.
 

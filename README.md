@@ -95,7 +95,8 @@ For Google Play preparation, see [docs/release.md](docs/release.md).
 
 ## Status
 
-Milestone 1 is complete. Milestone 2 now loads Danish subscription catalogues from TMDb when a
-token is configured, merges per-provider availability by canonical title identity, and falls back
-to the sample catalogue when configuration or connectivity is unavailable. Provider-specific
-deep-link resolution remains before the catalogue vertical slice is complete.
+Milestone 1 is complete. Milestone 2 now discovers the Danish provider directory and subscription
+catalogues from TMDb when a token is configured, merges per-provider availability by canonical
+title identity, and falls back to four starter providers plus sample titles when configuration or
+connectivity is unavailable. Provider-specific deep-link resolution remains before the catalogue
+vertical slice is complete.

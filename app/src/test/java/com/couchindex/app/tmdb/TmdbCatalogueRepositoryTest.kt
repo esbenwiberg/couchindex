@@ -9,8 +9,8 @@ import org.junit.Test
 
 class TmdbCatalogueRepositoryTest {
     private val providers = listOf(
-        Provider(id = "netflix", name = "Netflix"),
-        Provider(id = "disney", name = "Disney+"),
+        Provider(id = "netflix", name = "Netflix", tmdbProviderId = 8),
+        Provider(id = "disney", name = "Disney+", tmdbProviderId = 337),
     )
 
     @Test
@@ -36,7 +36,6 @@ class TmdbCatalogueRepositoryTest {
         val repository = TmdbCatalogueRepository(
             source = source,
             providers = providers,
-            tmdbProviderIds = mapOf("netflix" to 8, "disney" to 337),
             retrievedAt = { "2026-07-12T00:00:00Z" },
         )
 
@@ -60,8 +59,7 @@ class TmdbCatalogueRepositoryTest {
                 requested = true
                 error("Unexpected request")
             },
-            providers = providers,
-            tmdbProviderIds = emptyMap(),
+            providers = listOf(Provider(id = "unknown", name = "Unknown")),
         )
 
         val titles = repository.discoverSubscriptionTitles("DK", setOf("unknown"))

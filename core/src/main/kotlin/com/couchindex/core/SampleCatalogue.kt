@@ -2,10 +2,10 @@ package com.couchindex.core
 
 object SampleCatalogue {
     val providers = listOf(
-        Provider(id = "netflix", name = "Netflix"),
-        Provider(id = "disney", name = "Disney+"),
-        Provider(id = "max", name = "Max"),
-        Provider(id = "viaplay", name = "Viaplay"),
+        Provider(id = "netflix", name = "Netflix", tmdbProviderId = 8),
+        Provider(id = "disney", name = "Disney+", tmdbProviderId = 337),
+        Provider(id = "max", name = "Max", tmdbProviderId = 1899),
+        Provider(id = "viaplay", name = "Viaplay", tmdbProviderId = 76),
     )
 
     val subscriptions = listOf(

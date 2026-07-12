@@ -19,10 +19,12 @@ import kotlinx.coroutines.coroutineScope
 class TmdbCatalogueRepository(
     private val source: TmdbDiscoverSource,
     providers: List<Provider>,
-    private val tmdbProviderIds: Map<String, Int> = DEFAULT_TMDB_PROVIDER_IDS,
     private val retrievedAt: () -> String = { Instant.now().toString() },
 ) : CatalogueRepository {
     private val providerNames = providers.associate { it.id to it.name }
+    private val tmdbProviderIds = providers.mapNotNull { provider ->
+        provider.tmdbProviderId?.let { provider.id to it }
+    }.toMap()
 
     override suspend fun discoverSubscriptionTitles(
         region: String,
@@ -98,13 +100,4 @@ class TmdbCatalogueRepository(
         val item: TmdbDiscoverItem,
         val providerId: String,
     )
-
-    companion object {
-        val DEFAULT_TMDB_PROVIDER_IDS = mapOf(
-            "netflix" to 8,
-            "disney" to 337,
-            "max" to 1899,
-            "viaplay" to 76,
-        )
-    }
 }

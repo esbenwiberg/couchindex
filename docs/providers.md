@@ -4,6 +4,8 @@
 
 TMDb is the initial canonical catalogue and identity source. Denmark is the default watch region. Provider availability is normalized into CouchIndex offers and filtered by configured subscriptions.
 
+The provider list is discovered from TMDb's regional movie and TV provider directories. Netflix, Disney+, Max and Viaplay are offline starter defaults, not an allowlist. Additional Danish providers receive stable local IDs based on their TMDb provider identity and are disabled until the user selects them.
+
 TMDb watch-provider availability is supplied by JustWatch. CouchIndex attributes JustWatch anywhere live availability status is presented, as required by the TMDb watch-provider API terms.
 
 ## Ratings

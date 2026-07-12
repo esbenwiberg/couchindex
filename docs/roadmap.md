@@ -11,6 +11,7 @@
 ## Milestone 2: catalogue vertical slice
 
 - [x] TMDb authentication
+- [x] Dynamic Danish provider directory
 - [x] Danish availability discovery
 - [x] Subscription configuration with local persistence
 - [x] Browse rows and title details
