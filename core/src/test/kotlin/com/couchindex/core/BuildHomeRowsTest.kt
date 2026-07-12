@@ -31,4 +31,21 @@ class BuildHomeRowsTest {
         assertFalse("Glass Mountain should be hidden while Viaplay is disabled", "Glass Mountain" in allVisibleTitles)
         assertTrue("Long Weekend remains visible because Disney+ is enabled", "Long Weekend" in allVisibleTitles)
     }
+
+    @Test
+    fun `empty derived rows are omitted while continue watching stays first`() {
+        val title = SampleCatalogue.titles.first().copy(
+            runtimeMinutes = null,
+            isNewOnService = false,
+            isHiddenGem = false,
+        )
+
+        val rows = buildHomeRows.invoke(
+            catalogue = listOf(title),
+            subscriptions = SampleCatalogue.subscriptions,
+            recentLaunches = emptyList(),
+        )
+
+        assertEquals(listOf("continue-watching", "highly-rated", "movies"), rows.map { it.id })
+    }
 }

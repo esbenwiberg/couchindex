@@ -82,7 +82,15 @@ private data class CatalogueStatus(
     val detail: String,
     val badge: String,
     val highlighted: Boolean,
-)
+) {
+    val railLabel: String
+        get() = when (badge) {
+            "Live" -> "DK catalogue live"
+            "Loading" -> "DK catalogue loading"
+            "Offline" -> "DK catalogue offline"
+            else -> "DK catalogue sample"
+        }
+}
 
 @Composable
 private fun CouchIndexApp() {
@@ -220,6 +228,7 @@ private fun CouchIndexApp() {
         Row(modifier = Modifier.fillMaxSize()) {
             DestinationRail(
                 selected = destination,
+                footerLabel = catalogueStatus.railLabel,
                 onSelect = { destination = it },
             )
             MainSurface(
@@ -262,6 +271,7 @@ private fun CouchIndexApp() {
 @Composable
 private fun DestinationRail(
     selected: Destination,
+    footerLabel: String,
     onSelect: (Destination) -> Unit,
 ) {
     Column(
@@ -294,7 +304,7 @@ private fun DestinationRail(
         }
         Spacer(modifier = Modifier.weight(1f))
         BasicText(
-            text = "DK catalogue sample",
+            text = footerLabel,
             style = TextStyle(color = Color(0xFF6D7B80), fontSize = 12.sp),
         )
     }

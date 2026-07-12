@@ -59,7 +59,7 @@ class BuildHomeRows {
                 label = "Hidden Gems",
                 titles = availableTitles.filter { it.isHiddenGem },
             ),
-        )
+        ).filter { row -> row.id == "continue-watching" || row.titles.isNotEmpty() }
     }
 
     private fun runtimeUnderTwoHours(title: Title): Boolean =
