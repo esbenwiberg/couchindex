@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -37,10 +38,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,6 +78,7 @@ import com.couchindex.core.MediaKind
 import com.couchindex.core.Provider
 import com.couchindex.core.Rating
 import com.couchindex.core.SampleCatalogue
+import com.couchindex.core.SearchCatalogue
 import com.couchindex.core.Subscription
 import com.couchindex.core.Title
 import com.couchindex.core.TitleId
@@ -83,6 +95,7 @@ class MainActivity : ComponentActivity() {
 private enum class Destination(val label: String) {
     Home("Home"),
     Browse("Browse"),
+    Search("Search"),
     Settings("Settings"),
 }
 
@@ -158,6 +171,7 @@ private fun CouchIndexApp() {
 
     var destination by remember { mutableStateOf(Destination.Home) }
     var selectedTitle by remember { mutableStateOf<Title?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(appConfig.hasTmdbReadAccessToken) {
         if (!appConfig.hasTmdbReadAccessToken) {
@@ -266,10 +280,12 @@ private fun CouchIndexApp() {
                 providers = providers,
                 subscriptions = subscriptions,
                 selectedTitle = selectedTitle,
+                searchQuery = searchQuery,
                 watchlistedTitleIds = watchlistedTitleIds,
                 watchedTitleIds = watchedTitleIds,
                 recentTitleIds = recentTitleIds,
                 onTitleSelected = { selectedTitle = it },
+                onSearchQueryChange = { searchQuery = it },
                 resolveLaunchTarget = providerLauncher::resolve,
                 onLaunchTargetSelected = { title, target ->
                     when (providerLauncher.launch(target)) {
@@ -370,10 +386,12 @@ private fun MainSurface(
     providers: List<Provider>,
     subscriptions: List<Subscription>,
     selectedTitle: Title?,
+    searchQuery: String,
     watchlistedTitleIds: Set<TitleId>,
     watchedTitleIds: Set<TitleId>,
     recentTitleIds: Set<TitleId>,
     onTitleSelected: (Title) -> Unit,
+    onSearchQueryChange: (String) -> Unit,
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onSubscriptionToggle: (String) -> Unit,
@@ -403,6 +421,14 @@ private fun MainSurface(
                     onTitleSelected = onTitleSelected,
                 )
 
+                Destination.Search -> SearchScreen(
+                    titles = rows.flatMap { it.titles }.distinctBy { it.id },
+                    query = searchQuery,
+                    providers = providers,
+                    onQueryChange = onSearchQueryChange,
+                    onTitleSelected = onTitleSelected,
+                )
+
                 Destination.Settings -> SettingsScreen(
                     appConfig = appConfig,
                     catalogueStatus = catalogueStatus,
@@ -425,6 +451,100 @@ private fun MainSurface(
             onContinueWatchingRemove = onContinueWatchingRemove,
         )
     }
+}
+
+@Composable
+private fun SearchScreen(
+    titles: List<Title>,
+    query: String,
+    providers: List<Provider>,
+    onQueryChange: (String) -> Unit,
+    onTitleSelected: (Title) -> Unit,
+) {
+    val searchCatalogue = remember { SearchCatalogue() }
+    val results by remember(titles, query) {
+        derivedStateOf { searchCatalogue.invoke(titles, query) }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        SearchInput(query = query, onQueryChange = onQueryChange)
+        BasicText(
+            text = when {
+                query.isBlank() -> ""
+                results.isEmpty() -> "No matching titles"
+                results.size == 1 -> "1 title"
+                else -> "${results.size} titles"
+            },
+            modifier = Modifier.height(20.dp),
+            style = TextStyle(color = Color(0xFF8FA0A5), fontSize = 13.sp),
+        )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(results, key = { "${it.id.mediaKind}-${it.id.tmdbId}" }) { title ->
+                BrowseListItem(
+                    title = title,
+                    providers = providers,
+                    onTitleSelected = onTitleSelected,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchInput(
+    query: String,
+    onQueryChange: (String) -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    val shape = RoundedCornerShape(8.dp)
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+    BasicTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp)
+            .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                if (
+                    event.type == KeyEventType.KeyDown &&
+                    event.key == Key.DirectionDown
+                ) {
+                    focusManager.moveFocus(FocusDirection.Down)
+                } else {
+                    false
+                }
+            }
+            .onFocusChanged { focused = it.isFocused }
+            .clip(shape)
+            .background(Color(0xFF151B1E))
+            .border(if (focused) 2.dp else 1.dp, if (focused) Color(0xFFE8C468) else Color(0xFF3A484D), shape)
+            .padding(horizontal = 18.dp),
+        singleLine = true,
+        textStyle = TextStyle(color = Color(0xFFF4F1E8), fontSize = 18.sp),
+        cursorBrush = SolidColor(Color(0xFFE8C468)),
+        decorationBox = { innerTextField ->
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
+                if (query.isEmpty()) {
+                    BasicText(
+                        text = "Search titles",
+                        style = TextStyle(color = Color(0xFF8FA0A5), fontSize = 18.sp),
+                    )
+                }
+                innerTextField()
+            }
+        },
+    )
 }
 
 @Composable

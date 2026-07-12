@@ -37,7 +37,7 @@
 
 - [x] Real TMDb artwork with cached loading and resilient fallbacks
 - [x] Runtime metadata
-- [ ] Cross-provider search
+- [x] Cross-provider search
 
 ## Later investigations
 

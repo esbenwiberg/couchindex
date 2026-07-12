@@ -108,3 +108,4 @@ TMDb titles also retain explicit IMDb and Wikidata identifiers for source-safe r
 Milestone 4 is complete with daily cached IMDb imports, separate TMDb and IMDb vote counts, and vote-aware quality rows.
 Milestone 5 now includes real TMDb poster artwork across Home, Browse and Details, cached locally with generated fallbacks,
 plus movie and series runtime metadata loaded during the existing title-details enrichment pass.
+Milestone 5 is complete with a single search surface across the merged catalogues of every enabled subscription.
