@@ -2,6 +2,9 @@ package com.couchindex.app.tmdb
 
 import com.couchindex.core.MediaKind
 import com.couchindex.core.Provider
+import com.couchindex.core.Rating
+import com.couchindex.core.RatingAdapter
+import com.couchindex.core.RatingScope
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -76,5 +79,48 @@ class TmdbCatalogueRepositoryTest {
 
         assertTrue(titles.isEmpty())
         assertEquals(false, requested)
+    }
+
+    @Test
+    fun `enriches discovered titles through replaceable rating adapters`() = runBlocking {
+        val item = TmdbDiscoverItem(
+            tmdbId = 42,
+            mediaKind = MediaKind.Movie,
+            name = "Shared Movie",
+            year = 2025,
+            overview = "Available from both subscriptions.",
+            posterPath = null,
+            voteAverage = 8.1,
+            voteCount = 12_400,
+        )
+        val repository = TmdbCatalogueRepository(
+            source = TmdbDiscoverSource { query ->
+                TmdbDiscoverPage(
+                    page = 1,
+                    totalPages = 1,
+                    totalResults = if (query.mediaType == TmdbDiscoverMediaType.Movie) 1 else 0,
+                    results = if (query.mediaType == TmdbDiscoverMediaType.Movie) listOf(item) else emptyList(),
+                )
+            },
+            providers = providers,
+            ratingAdapters = listOf(
+                RatingAdapter {
+                    listOf(
+                        Rating(
+                            source = "IMDb",
+                            value = 8.3,
+                            scale = 10.0,
+                            voteCount = 50_000,
+                            scope = RatingScope.Title,
+                            retrievedAt = "2026-07-12",
+                        ),
+                    )
+                },
+            ),
+        )
+
+        val title = repository.discoverSubscriptionTitles("DK", setOf("netflix")).single()
+
+        assertEquals(listOf("TMDb", "IMDb"), title.ratings.map { it.source })
     }
 }

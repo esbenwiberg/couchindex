@@ -30,7 +30,8 @@
 
 - [ ] IMDb rating import or lookup
 - [x] TMDb vote counts
-- [ ] Additional rating adapter
+- [x] Replaceable rating adapter pipeline
+- [ ] Additional rating source
 - [x] Vote-aware quality browse filters
 
 ## Later investigations

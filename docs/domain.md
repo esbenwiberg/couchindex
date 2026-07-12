@@ -22,6 +22,8 @@ A platform-specific destination used to open a title, series or episode in a pro
 ### Rating
 A score from a named source with its own scale, scope, vote count and retrieval timestamp.
 
+Titles retain explicit external identifiers so source adapters can join ratings without fuzzy title matching.
+
 ### Subscription
 A provider enabled by the user. Browse excludes unrelated providers by default.
 

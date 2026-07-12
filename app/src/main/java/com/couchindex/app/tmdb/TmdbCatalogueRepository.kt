@@ -1,12 +1,14 @@
 package com.couchindex.app.tmdb
 
 import com.couchindex.core.CatalogueRepository
+import com.couchindex.core.EnrichTitleRatings
 import com.couchindex.core.LaunchTarget
 import com.couchindex.core.MediaKind
 import com.couchindex.core.MonetizationType
 import com.couchindex.core.Offer
 import com.couchindex.core.Provider
 import com.couchindex.core.Rating
+import com.couchindex.core.RatingAdapter
 import com.couchindex.core.RatingScope
 import com.couchindex.core.Title
 import com.couchindex.core.TitleId
@@ -19,8 +21,10 @@ import kotlinx.coroutines.coroutineScope
 class TmdbCatalogueRepository(
     private val source: TmdbDiscoverSource,
     providers: List<Provider>,
+    ratingAdapters: List<RatingAdapter> = emptyList(),
     private val retrievedAt: () -> String = { Instant.now().toString() },
 ) : CatalogueRepository {
+    private val enrichTitleRatings = EnrichTitleRatings(ratingAdapters)
     private val providersById = providers.associateBy { it.id }
     private val tmdbProviderIds = providers.mapNotNull { provider ->
         provider.tmdbProviderId?.let { provider.id to it }
@@ -46,7 +50,7 @@ class TmdbCatalogueRepository(
             }
         }
 
-        mergeOffers(requests.awaitAll().flatten(), region)
+        mergeOffers(requests.awaitAll().flatten(), region).map(enrichTitleRatings::invoke)
     }
 
     private fun mergeOffers(discovered: List<DiscoveredOffer>, region: String): List<Title> {

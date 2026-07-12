@@ -87,6 +87,7 @@ data class Title(
     val launchTargets: List<LaunchTarget>,
     val isNewOnService: Boolean = false,
     val isHiddenGem: Boolean = false,
+    val externalIds: Map<String, String> = emptyMap(),
 )
 
 data class BrowseRow(
