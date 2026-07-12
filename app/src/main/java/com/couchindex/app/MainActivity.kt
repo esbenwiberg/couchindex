@@ -52,6 +52,7 @@ import com.couchindex.app.launch.ProviderLaunchResult
 import com.couchindex.app.launch.RecentLaunchStore
 import com.couchindex.app.launch.ResolvedProviderLaunch
 import com.couchindex.app.settings.SubscriptionStore
+import com.couchindex.app.state.WatchlistStore
 import com.couchindex.app.tmdb.TmdbCatalogueRepository
 import com.couchindex.app.tmdb.TmdbDiscoverClient
 import com.couchindex.app.tmdb.TmdbProviderDirectory
@@ -64,6 +65,7 @@ import com.couchindex.core.Rating
 import com.couchindex.core.SampleCatalogue
 import com.couchindex.core.Subscription
 import com.couchindex.core.Title
+import com.couchindex.core.TitleId
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,6 +104,7 @@ private fun CouchIndexApp() {
     val providerLauncher = remember(context) { AndroidProviderLauncher(context) }
     val recentLaunchStore = remember(context) { RecentLaunchStore(context) }
     val subscriptionStore = remember(context) { SubscriptionStore(context) }
+    val watchlistStore = remember(context) { WatchlistStore(context) }
     val tmdbClient = remember(appConfig.tmdbReadAccessToken) { TmdbDiscoverClient(appConfig.tmdbReadAccessToken) }
     val providerDirectory = remember(tmdbClient) {
         TmdbProviderDirectory(source = tmdbClient, fallbackProviders = SampleCatalogue.providers)
@@ -114,6 +117,9 @@ private fun CouchIndexApp() {
     val recentLaunches = remember {
         val initial = if (appConfig.hasTmdbReadAccessToken) recentLaunchStore.load() else SampleCatalogue.recentLaunches
         mutableStateListOf(*initial.toTypedArray())
+    }
+    val watchlistEntries = remember {
+        mutableStateListOf(*watchlistStore.load().toTypedArray())
     }
     var catalogue by remember { mutableStateOf(SampleCatalogue.titles) }
     var catalogueStatus by remember {
@@ -131,9 +137,11 @@ private fun CouchIndexApp() {
                 catalogue = catalogue,
                 subscriptions = subscriptions,
                 recentLaunches = recentLaunches,
+                watchlistEntries = watchlistEntries,
             )
         }
     }
+    val watchlistedTitleIds = watchlistEntries.map { it.titleId }.toSet()
     val enabledProviderIds = subscriptions.filter { it.enabled }.map { it.providerId }.toSet()
     val providerSignature = providers.map { it.id to it.tmdbProviderId }
 
@@ -246,6 +254,7 @@ private fun CouchIndexApp() {
                 providers = providers,
                 subscriptions = subscriptions,
                 selectedTitle = selectedTitle,
+                watchlistedTitleIds = watchlistedTitleIds,
                 onTitleSelected = { selectedTitle = it },
                 resolveLaunchTarget = providerLauncher::resolve,
                 onLaunchTargetSelected = { title, target ->
@@ -272,6 +281,11 @@ private fun CouchIndexApp() {
                         subscriptions[index] = updated
                         subscriptionStore.setEnabled(updated.providerId, updated.enabled)
                     }
+                },
+                onWatchlistToggle = { title ->
+                    val isMember = title.id in watchlistedTitleIds
+                    watchlistEntries.clear()
+                    watchlistEntries.addAll(watchlistStore.setMembership(title.id, !isMember))
                 },
             )
         }
@@ -329,10 +343,12 @@ private fun MainSurface(
     providers: List<Provider>,
     subscriptions: List<Subscription>,
     selectedTitle: Title?,
+    watchlistedTitleIds: Set<TitleId>,
     onTitleSelected: (Title) -> Unit,
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onSubscriptionToggle: (String) -> Unit,
+    onWatchlistToggle: (Title) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -368,8 +384,10 @@ private fun MainSurface(
         DetailsPanel(
             title = selectedTitle,
             providers = providers,
+            isWatchlisted = selectedTitle?.id in watchlistedTitleIds,
             resolveLaunchTarget = resolveLaunchTarget,
             onLaunchTargetSelected = onLaunchTargetSelected,
+            onWatchlistToggle = onWatchlistToggle,
         )
     }
 }
@@ -667,8 +685,10 @@ private fun BrowseListItem(
 private fun DetailsPanel(
     title: Title?,
     providers: List<Provider>,
+    isWatchlisted: Boolean,
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
+    onWatchlistToggle: (Title) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -732,6 +752,11 @@ private fun DetailsPanel(
                 )
             }
         }
+        FocusButton(
+            label = if (isWatchlisted) "Remove from Watchlist" else "Add to Watchlist",
+            selected = false,
+            onClick = { onWatchlistToggle(title) },
+        )
         LabelBlock(label = "Available on", value = title.providerLabels(providers).joinToString(" / "))
         RatingStack(ratings = title.ratings)
         BasicText(

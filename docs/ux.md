@@ -5,11 +5,12 @@ CouchIndex is designed for a television, remote control and viewing distance rat
 ## Home hierarchy
 
 1. Continue Watching
-2. New on My Services
-3. Highly Rated
-4. Movies
-5. Series
-6. Useful filtered rows such as Under Two Hours or Hidden Gems
+2. My Watchlist
+3. New on My Services
+4. Highly Rated
+5. Movies
+6. Series
+7. Useful filtered rows such as Under Two Hours or Hidden Gems
 
 ## Interaction rules
 

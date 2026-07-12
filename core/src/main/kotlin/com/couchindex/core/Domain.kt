@@ -65,6 +65,11 @@ data class RecentLaunch(
     val launchedAtEpochMillis: Long? = null,
 )
 
+data class WatchlistEntry(
+    val titleId: TitleId,
+    val addedAtEpochMillis: Long,
+)
+
 data class Title(
     val id: TitleId,
     val name: String,

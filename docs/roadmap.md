@@ -20,7 +20,7 @@
 
 ## Milestone 3: personal state
 
-- [ ] Local watchlist
+- [x] Local watchlist
 - [x] Persistent recent launches
 - [x] Continue Watching derived from recent launches
 - [ ] Manual watched and remove actions

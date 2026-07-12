@@ -5,6 +5,7 @@ class BuildHomeRows {
         catalogue: List<Title>,
         subscriptions: List<Subscription>,
         recentLaunches: List<RecentLaunch>,
+        watchlistEntries: List<WatchlistEntry> = emptyList(),
         region: String = "DK",
     ): List<BrowseRow> {
         val enabledProviderIds = subscriptions
@@ -22,12 +23,18 @@ class BuildHomeRows {
 
         val byId = availableTitles.associateBy { it.id }
         val continueWatching = recentLaunches.mapNotNull { byId[it.titleId] }
+        val watchlist = watchlistEntries.mapNotNull { byId[it.titleId] }
 
         return listOf(
             BrowseRow(
                 id = "continue-watching",
                 label = "Continue Watching",
                 titles = continueWatching,
+            ),
+            BrowseRow(
+                id = "watchlist",
+                label = "My Watchlist",
+                titles = watchlist,
             ),
             BrowseRow(
                 id = "new-on-my-services",

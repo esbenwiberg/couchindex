@@ -48,4 +48,23 @@ class BuildHomeRowsTest {
 
         assertEquals(listOf("continue-watching", "highly-rated", "movies"), rows.map { it.id })
     }
+
+    @Test
+    fun `watchlist follows continue watching and preserves saved order`() {
+        val watchedFirst = SampleCatalogue.titles[2]
+        val watchedSecond = SampleCatalogue.titles[0]
+
+        val rows = buildHomeRows.invoke(
+            catalogue = SampleCatalogue.titles,
+            subscriptions = SampleCatalogue.subscriptions,
+            recentLaunches = emptyList(),
+            watchlistEntries = listOf(
+                WatchlistEntry(watchedFirst.id, 20),
+                WatchlistEntry(watchedSecond.id, 10),
+            ),
+        )
+
+        assertEquals(listOf("continue-watching", "watchlist"), rows.take(2).map { it.id })
+        assertEquals(listOf(watchedFirst.id, watchedSecond.id), rows[1].titles.map { it.id })
+    }
 }

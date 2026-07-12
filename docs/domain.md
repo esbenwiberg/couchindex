@@ -25,6 +25,9 @@ A score from a named source with its own scale, scope, vote count and retrieval 
 ### Subscription
 A provider enabled by the user. Browse excludes unrelated providers by default.
 
+### Watchlist entry
+A locally persisted title identity and the time it was added. The newest saved title appears first in My Watchlist.
+
 ### Watch state
 CouchIndex-owned state describing recent launch, watchlist membership, completion or the next known episode.
 
