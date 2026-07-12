@@ -90,7 +90,11 @@ Once the local Android toolchain is installed, build from Android Studio or from
 ./gradlew :core:test
 ```
 
+For emulator setup and TV smoke checks, see [docs/development.md](docs/development.md).
+For Google Play preparation, see [docs/release.md](docs/release.md).
+
 ## Status
 
-Milestone 1 scaffold in progress. The repo now contains a native Android TV app module, an Android-free
-core module, placeholder browse data and a Compose shell with Home, Browse and Settings destinations.
+Milestone 1 is complete. The repo now contains a native Android TV app module, an Android-free
+core module, placeholder browse data, a Compose shell with Home, Browse and Settings destinations,
+and repeatable local emulator validation helpers. Milestone 2 is in progress.
