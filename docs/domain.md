@@ -28,6 +28,9 @@ A provider enabled by the user. Browse excludes unrelated providers by default.
 ### Watchlist entry
 A locally persisted title identity and the time it was added. The newest saved title appears first in My Watchlist.
 
+### Watched entry
+A locally persisted title identity and the time it was marked watched. Watched history is independent from watchlist membership.
+
 ### Watch state
 CouchIndex-owned state describing recent launch, watchlist membership, completion or the next known episode.
 

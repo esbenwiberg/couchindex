@@ -24,7 +24,7 @@
 - [x] Persistent recent launches
 - [x] Continue Watching derived from recent launches
 - [x] Manual Continue Watching removal
-- [ ] Manual watched state
+- [x] Manual watched state
 
 ## Milestone 4: rating enrichment
 

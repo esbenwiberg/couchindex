@@ -7,6 +7,7 @@
 - **Subscription**: A provider enabled by the user.
 - **Rating source**: The origin of a score, such as IMDb or TMDb.
 - **Watchlist**: Titles the user intends to watch.
+- **Watched history**: Titles the user has explicitly marked watched, stored independently from the watchlist.
 - **Recent launch**: A title opened through CouchIndex.
 - **Continue Watching**: CouchIndex-owned resume queue, initially derived from recent launches and manual state.
 - **Canonical identity**: The primary identifier used to correlate external data; TMDb in V1.

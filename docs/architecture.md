@@ -26,7 +26,7 @@ Provider launcher → installed streaming app
 
 ## Data ownership
 
-Local storage owns subscriptions, watchlist entries, recent launches and CouchIndex Continue Watching state. External APIs own catalogue metadata, availability and third-party ratings.
+Local storage owns subscriptions, watchlist entries, watched history, recent launches and CouchIndex Continue Watching state. External APIs own catalogue metadata, availability and third-party ratings.
 
 ## Runtime behavior
 

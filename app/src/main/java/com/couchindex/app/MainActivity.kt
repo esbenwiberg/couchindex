@@ -52,6 +52,7 @@ import com.couchindex.app.launch.ProviderLaunchResult
 import com.couchindex.app.launch.RecentLaunchStore
 import com.couchindex.app.launch.ResolvedProviderLaunch
 import com.couchindex.app.settings.SubscriptionStore
+import com.couchindex.app.state.WatchedStore
 import com.couchindex.app.state.WatchlistStore
 import com.couchindex.app.tmdb.TmdbCatalogueRepository
 import com.couchindex.app.tmdb.TmdbDiscoverClient
@@ -104,6 +105,7 @@ private fun CouchIndexApp() {
     val providerLauncher = remember(context) { AndroidProviderLauncher(context) }
     val recentLaunchStore = remember(context) { RecentLaunchStore(context) }
     val subscriptionStore = remember(context) { SubscriptionStore(context) }
+    val watchedStore = remember(context) { WatchedStore(context) }
     val watchlistStore = remember(context) { WatchlistStore(context) }
     val tmdbClient = remember(appConfig.tmdbReadAccessToken) { TmdbDiscoverClient(appConfig.tmdbReadAccessToken) }
     val providerDirectory = remember(tmdbClient) {
@@ -120,6 +122,9 @@ private fun CouchIndexApp() {
     }
     val watchlistEntries = remember {
         mutableStateListOf(*watchlistStore.load().toTypedArray())
+    }
+    val watchedEntries = remember {
+        mutableStateListOf(*watchedStore.load().toTypedArray())
     }
     var catalogue by remember { mutableStateOf(SampleCatalogue.titles) }
     var catalogueStatus by remember {
@@ -142,6 +147,7 @@ private fun CouchIndexApp() {
         }
     }
     val watchlistedTitleIds = watchlistEntries.map { it.titleId }.toSet()
+    val watchedTitleIds = watchedEntries.map { it.titleId }.toSet()
     val recentTitleIds = recentLaunches.map { it.titleId }.toSet()
     val enabledProviderIds = subscriptions.filter { it.enabled }.map { it.providerId }.toSet()
     val providerSignature = providers.map { it.id to it.tmdbProviderId }
@@ -256,6 +262,7 @@ private fun CouchIndexApp() {
                 subscriptions = subscriptions,
                 selectedTitle = selectedTitle,
                 watchlistedTitleIds = watchlistedTitleIds,
+                watchedTitleIds = watchedTitleIds,
                 recentTitleIds = recentTitleIds,
                 onTitleSelected = { selectedTitle = it },
                 resolveLaunchTarget = providerLauncher::resolve,
@@ -288,6 +295,15 @@ private fun CouchIndexApp() {
                     val isMember = title.id in watchlistedTitleIds
                     watchlistEntries.clear()
                     watchlistEntries.addAll(watchlistStore.setMembership(title.id, !isMember))
+                },
+                onWatchedToggle = { title ->
+                    val isWatched = title.id in watchedTitleIds
+                    watchedEntries.clear()
+                    watchedEntries.addAll(watchedStore.setWatched(title.id, !isWatched))
+                    if (!isWatched) {
+                        recentLaunches.clear()
+                        recentLaunches.addAll(recentLaunchStore.remove(title.id))
+                    }
                 },
                 onContinueWatchingRemove = { title ->
                     recentLaunches.clear()
@@ -350,12 +366,14 @@ private fun MainSurface(
     subscriptions: List<Subscription>,
     selectedTitle: Title?,
     watchlistedTitleIds: Set<TitleId>,
+    watchedTitleIds: Set<TitleId>,
     recentTitleIds: Set<TitleId>,
     onTitleSelected: (Title) -> Unit,
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onSubscriptionToggle: (String) -> Unit,
     onWatchlistToggle: (Title) -> Unit,
+    onWatchedToggle: (Title) -> Unit,
     onContinueWatchingRemove: (Title) -> Unit,
 ) {
     Row(
@@ -393,10 +411,12 @@ private fun MainSurface(
             title = selectedTitle,
             providers = providers,
             isWatchlisted = selectedTitle?.id in watchlistedTitleIds,
+            isWatched = selectedTitle?.id in watchedTitleIds,
             isInContinueWatching = selectedTitle?.id in recentTitleIds,
             resolveLaunchTarget = resolveLaunchTarget,
             onLaunchTargetSelected = onLaunchTargetSelected,
             onWatchlistToggle = onWatchlistToggle,
+            onWatchedToggle = onWatchedToggle,
             onContinueWatchingRemove = onContinueWatchingRemove,
         )
     }
@@ -696,10 +716,12 @@ private fun DetailsPanel(
     title: Title?,
     providers: List<Provider>,
     isWatchlisted: Boolean,
+    isWatched: Boolean,
     isInContinueWatching: Boolean,
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onWatchlistToggle: (Title) -> Unit,
+    onWatchedToggle: (Title) -> Unit,
     onContinueWatchingRemove: (Title) -> Unit,
 ) {
     Column(
@@ -768,6 +790,11 @@ private fun DetailsPanel(
             label = if (isWatchlisted) "Remove from Watchlist" else "Add to Watchlist",
             selected = false,
             onClick = { onWatchlistToggle(title) },
+        )
+        FocusButton(
+            label = if (isWatched) "Mark Unwatched" else "Mark Watched",
+            selected = false,
+            onClick = { onWatchedToggle(title) },
         )
         if (isInContinueWatching) {
             FocusButton(

@@ -70,6 +70,11 @@ data class WatchlistEntry(
     val addedAtEpochMillis: Long,
 )
 
+data class WatchedEntry(
+    val titleId: TitleId,
+    val watchedAtEpochMillis: Long,
+)
+
 data class Title(
     val id: TitleId,
     val name: String,

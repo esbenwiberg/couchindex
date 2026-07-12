@@ -52,7 +52,7 @@ The app is local-first. A backend is intentionally excluded from V1.
 - TMDb: canonical catalogue identity, metadata, artwork and Danish provider availability
 - IMDb datasets: rating and vote count
 - Additional rating adapter: Rotten Tomatoes and other sources where legally and technically available
-- Local database: subscriptions, watchlist, recent launches and Continue Watching state
+- Local database: subscriptions, watchlist, watched history, recent launches and Continue Watching state
 
 External scores are never blended into a fake universal rating. Vote count is retained so browse ranking
 can avoid promoting titles with tiny samples.
@@ -102,4 +102,4 @@ title identity, and falls back to four starter providers plus sample titles when
 connectivity is unavailable. Provider launches now resolve to an installed TV app, a title watch
 page or an install page, and successful content handoffs feed persistent Continue Watching state.
 Milestone 3 now also includes a persistent local watchlist surfaced directly after Continue Watching,
-plus manual removal from Continue Watching.
+manual removal from Continue Watching and independent watched history.
