@@ -1,0 +1,110 @@
+package com.couchindex.app.tmdb
+
+import com.couchindex.core.CatalogueRepository
+import com.couchindex.core.LaunchTarget
+import com.couchindex.core.MediaKind
+import com.couchindex.core.MonetizationType
+import com.couchindex.core.Offer
+import com.couchindex.core.Provider
+import com.couchindex.core.Rating
+import com.couchindex.core.RatingScope
+import com.couchindex.core.Title
+import com.couchindex.core.TitleId
+import java.time.Instant
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+
+class TmdbCatalogueRepository(
+    private val source: TmdbDiscoverSource,
+    providers: List<Provider>,
+    private val tmdbProviderIds: Map<String, Int> = DEFAULT_TMDB_PROVIDER_IDS,
+    private val retrievedAt: () -> String = { Instant.now().toString() },
+) : CatalogueRepository {
+    private val providerNames = providers.associate { it.id to it.name }
+
+    override suspend fun discoverSubscriptionTitles(
+        region: String,
+        providerIds: Set<String>,
+    ): List<Title> = coroutineScope {
+        val requests = providerIds.mapNotNull { providerId ->
+            tmdbProviderIds[providerId]?.let { providerId to it }
+        }.flatMap { (providerId, tmdbProviderId) ->
+            TmdbDiscoverMediaType.entries.map { mediaType ->
+                async(Dispatchers.IO) {
+                    source.fetchDiscoverPage(
+                        TmdbDiscoverQuery(
+                            mediaType = mediaType,
+                            region = region,
+                            tmdbProviderIds = setOf(tmdbProviderId),
+                        ),
+                    ).results.map { item -> DiscoveredOffer(item, providerId) }
+                }
+            }
+        }
+
+        mergeOffers(requests.awaitAll().flatten(), region)
+    }
+
+    private fun mergeOffers(discovered: List<DiscoveredOffer>, region: String): List<Title> {
+        val timestamp = retrievedAt()
+        return discovered
+            .groupBy { TitleId(it.item.tmdbId, it.item.mediaKind) }
+            .map { (titleId, matches) ->
+                val item = matches.first().item
+                val matchedProviderIds = matches.map { it.providerId }.distinct()
+                Title(
+                    id = titleId,
+                    name = item.name,
+                    year = item.year,
+                    mediaKind = item.mediaKind,
+                    runtimeMinutes = null,
+                    synopsis = item.overview,
+                    offers = matchedProviderIds.map { providerId ->
+                        Offer(
+                            providerId = providerId,
+                            region = region,
+                            monetizationType = MonetizationType.Subscription,
+                        )
+                    },
+                    ratings = item.tmdbRating(timestamp),
+                    launchTargets = matchedProviderIds.map { providerId ->
+                        LaunchTarget(
+                            providerId = providerId,
+                            label = "Open in ${providerNames[providerId] ?: providerId}",
+                        )
+                    },
+                )
+            }
+            .sortedWith(compareByDescending<Title> { it.ratings.firstOrNull()?.voteCount ?: 0 }.thenBy { it.name })
+    }
+
+    private fun TmdbDiscoverItem.tmdbRating(timestamp: String): List<Rating> =
+        voteAverage?.takeIf { it > 0.0 }?.let { average ->
+            listOf(
+                Rating(
+                    source = "TMDb",
+                    value = average,
+                    scale = 10.0,
+                    voteCount = voteCount,
+                    scope = RatingScope.Title,
+                    retrievedAt = timestamp,
+                ),
+            )
+        }.orEmpty()
+
+    private data class DiscoveredOffer(
+        val item: TmdbDiscoverItem,
+        val providerId: String,
+    )
+
+    companion object {
+        val DEFAULT_TMDB_PROVIDER_IDS = mapOf(
+            "netflix" to 8,
+            "disney" to 337,
+            "max" to 1899,
+            "viaplay" to 76,
+        )
+    }
+}

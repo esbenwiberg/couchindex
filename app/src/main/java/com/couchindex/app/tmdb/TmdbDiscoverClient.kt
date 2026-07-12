@@ -59,10 +59,14 @@ data class TmdbDiscoverItem(
     val voteCount: Int?,
 )
 
+fun interface TmdbDiscoverSource {
+    fun fetchDiscoverPage(query: TmdbDiscoverQuery): TmdbDiscoverPage
+}
+
 class TmdbDiscoverClient(
     private val readAccessToken: String,
     private val baseUrl: String = DEFAULT_BASE_URL,
-) {
+) : TmdbDiscoverSource {
     fun discoverUrl(query: TmdbDiscoverQuery): URL {
         val params = listOf(
             "language" to query.language,
@@ -75,7 +79,7 @@ class TmdbDiscoverClient(
         return URL("${baseUrl.trimEnd('/')}/${query.mediaType.path}?${params.toQueryString()}")
     }
 
-    fun fetchDiscoverPage(query: TmdbDiscoverQuery): TmdbDiscoverPage {
+    override fun fetchDiscoverPage(query: TmdbDiscoverQuery): TmdbDiscoverPage {
         check(readAccessToken.isNotBlank()) { "TMDb read access token is missing" }
         return TmdbDiscoverParser.parse(
             body = executeGet(discoverUrl(query)),

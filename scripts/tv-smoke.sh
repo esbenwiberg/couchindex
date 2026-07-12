@@ -13,7 +13,7 @@ Usage: scripts/tv-smoke.sh [--skip-install] [--out-dir DIR]
 Runs a small emulator smoke test:
   1. build/install/launch CouchIndex unless --skip-install is passed
   2. verify the app is foregrounded
-  3. capture before/after D-pad screenshots
+  3. capture Home and D-pad-reached Settings screenshots
 EOF
 }
 
@@ -53,13 +53,22 @@ fi
 
 mkdir -p "$out_dir"
 
+"$ADB" -s "$ANDROID_SERIAL" shell am force-stop com.couchindex.app
 "$ADB" -s "$ANDROID_SERIAL" shell am start -n com.couchindex.app/.MainActivity >/dev/null
-sleep 1
+# Cold-start Compose rendering trails the activity focus event on the headless TV image.
+sleep 6
 
 focus_before="$out_dir/focus-before.txt"
 focus_after="$out_dir/focus-after.txt"
 home_screenshot="$out_dir/home.png"
 dpad_screenshot="$out_dir/after-dpad.png"
+
+capture_settled_screenshot() {
+  local destination="$1"
+  "$ADB" -s "$ANDROID_SERIAL" exec-out screencap -p >/dev/null
+  sleep 6
+  "$ADB" -s "$ANDROID_SERIAL" exec-out screencap -p > "$destination"
+}
 
 "$ADB" -s "$ANDROID_SERIAL" shell dumpsys window > "$focus_before"
 if ! grep -q "com.couchindex.app" "$focus_before"; then
@@ -67,16 +76,22 @@ if ! grep -q "com.couchindex.app" "$focus_before"; then
   exit 1
 fi
 
-"$ADB" -s "$ANDROID_SERIAL" exec-out screencap -p > "$home_screenshot"
+capture_settled_screenshot "$home_screenshot"
 
-"$ADB" -s "$ANDROID_SERIAL" shell input keyevent KEYCODE_DPAD_DOWN
-sleep 0.2
-"$ADB" -s "$ANDROID_SERIAL" shell input keyevent KEYCODE_DPAD_UP
-sleep 0.2
-"$ADB" -s "$ANDROID_SERIAL" shell input keyevent KEYCODE_DPAD_RIGHT
-sleep 0.2
-"$ADB" -s "$ANDROID_SERIAL" shell input keyevent KEYCODE_DPAD_LEFT
-sleep 0.5
+send_key() {
+  "$ADB" -s "$ANDROID_SERIAL" shell input keyevent "$1"
+  sleep 0.5
+}
+
+send_key KEYCODE_DPAD_DOWN
+send_key KEYCODE_DPAD_DOWN
+send_key KEYCODE_DPAD_CENTER
+send_key KEYCODE_DPAD_RIGHT
+send_key KEYCODE_DPAD_DOWN
+send_key KEYCODE_DPAD_DOWN
+send_key KEYCODE_DPAD_DOWN
+send_key KEYCODE_DPAD_DOWN
+sleep 6
 
 "$ADB" -s "$ANDROID_SERIAL" shell dumpsys window > "$focus_after"
 if ! grep -q "com.couchindex.app" "$focus_after"; then
@@ -84,7 +99,7 @@ if ! grep -q "com.couchindex.app" "$focus_after"; then
   exit 1
 fi
 
-"$ADB" -s "$ANDROID_SERIAL" exec-out screencap -p > "$dpad_screenshot"
+capture_settled_screenshot "$dpad_screenshot"
 
 echo "TV smoke test passed."
 echo "Screenshots:"

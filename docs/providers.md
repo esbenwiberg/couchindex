@@ -4,6 +4,8 @@
 
 TMDb is the initial canonical catalogue and identity source. Denmark is the default watch region. Provider availability is normalized into CouchIndex offers and filtered by configured subscriptions.
 
+TMDb watch-provider availability is supplied by JustWatch. CouchIndex attributes JustWatch anywhere live availability status is presented, as required by the TMDb watch-provider API terms.
+
 ## Ratings
 
 IMDb and TMDb are initial rating sources. Rotten Tomatoes or other sources may be added through replaceable adapters when access and usage terms are suitable.

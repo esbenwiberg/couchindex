@@ -50,6 +50,8 @@ import com.couchindex.app.config.AppConfigLoader
 import com.couchindex.app.launch.AndroidProviderLauncher
 import com.couchindex.app.launch.ProviderLaunchResult
 import com.couchindex.app.settings.SubscriptionStore
+import com.couchindex.app.tmdb.TmdbCatalogueRepository
+import com.couchindex.app.tmdb.TmdbDiscoverClient
 import com.couchindex.core.BrowseRow
 import com.couchindex.core.BuildHomeRows
 import com.couchindex.core.LaunchTarget
@@ -75,6 +77,12 @@ private enum class Destination(val label: String) {
     Settings("Settings"),
 }
 
+private data class CatalogueStatus(
+    val detail: String,
+    val badge: String,
+    val highlighted: Boolean,
+)
+
 @Composable
 private fun CouchIndexApp() {
     val rowBuilder = remember { BuildHomeRows() }
@@ -83,21 +91,70 @@ private fun CouchIndexApp() {
     val providerLauncher = remember(context) { AndroidProviderLauncher(context) }
     val subscriptionStore = remember(context) { SubscriptionStore(context) }
     val providers = remember { SampleCatalogue.providers }
+    val catalogueRepository = remember(appConfig.tmdbReadAccessToken) {
+        TmdbCatalogueRepository(
+            source = TmdbDiscoverClient(appConfig.tmdbReadAccessToken),
+            providers = providers,
+        )
+    }
     val subscriptions = remember {
         mutableStateListOf(*subscriptionStore.load(SampleCatalogue.subscriptions).toTypedArray())
+    }
+    var catalogue by remember { mutableStateOf(SampleCatalogue.titles) }
+    var catalogueStatus by remember {
+        mutableStateOf(
+            CatalogueStatus(
+                detail = "Using sample catalogue",
+                badge = "Local",
+                highlighted = false,
+            ),
+        )
     }
     val rows by remember {
         derivedStateOf {
             rowBuilder.invoke(
-                catalogue = SampleCatalogue.titles,
+                catalogue = catalogue,
                 subscriptions = subscriptions,
                 recentLaunches = SampleCatalogue.recentLaunches,
             )
         }
     }
+    val enabledProviderIds = subscriptions.filter { it.enabled }.map { it.providerId }.toSet()
 
     var destination by remember { mutableStateOf(Destination.Home) }
     var selectedTitle by remember { mutableStateOf<Title?>(null) }
+
+    LaunchedEffect(appConfig.hasTmdbReadAccessToken, enabledProviderIds) {
+        if (!appConfig.hasTmdbReadAccessToken) {
+            catalogue = SampleCatalogue.titles
+            catalogueStatus = CatalogueStatus("Using sample catalogue", "Local", highlighted = false)
+            return@LaunchedEffect
+        }
+
+        if (enabledProviderIds.isEmpty()) {
+            catalogue = emptyList()
+            catalogueStatus = CatalogueStatus("No subscriptions enabled", "Ready", highlighted = true)
+            return@LaunchedEffect
+        }
+
+        catalogueStatus = CatalogueStatus("Refreshing Danish availability", "Loading", highlighted = true)
+        runCatching {
+            catalogueRepository.discoverSubscriptionTitles(
+                region = "DK",
+                providerIds = enabledProviderIds,
+            )
+        }.onSuccess { discoveredTitles ->
+            catalogue = discoveredTitles
+            catalogueStatus = CatalogueStatus(
+                detail = "${discoveredTitles.size} titles - JustWatch availability",
+                badge = "Live",
+                highlighted = true,
+            )
+        }.onFailure {
+            catalogue = SampleCatalogue.titles
+            catalogueStatus = CatalogueStatus("Refresh failed; using sample catalogue", "Offline", highlighted = false)
+        }
+    }
 
     LaunchedEffect(rows) {
         if (selectedTitle == null || rows.none { row -> row.titles.any { it.id == selectedTitle?.id } }) {
@@ -127,6 +184,7 @@ private fun CouchIndexApp() {
                 destination = destination,
                 rows = rows,
                 appConfig = appConfig,
+                catalogueStatus = catalogueStatus,
                 providers = providers,
                 subscriptions = subscriptions,
                 selectedTitle = selectedTitle,
@@ -205,6 +263,7 @@ private fun MainSurface(
     destination: Destination,
     rows: List<BrowseRow>,
     appConfig: AppConfig,
+    catalogueStatus: CatalogueStatus,
     providers: List<Provider>,
     subscriptions: List<Subscription>,
     selectedTitle: Title?,
@@ -236,6 +295,7 @@ private fun MainSurface(
 
                 Destination.Settings -> SettingsScreen(
                     appConfig = appConfig,
+                    catalogueStatus = catalogueStatus,
                     providers = providers,
                     subscriptions = subscriptions,
                     onSubscriptionToggle = onSubscriptionToggle,
@@ -338,19 +398,22 @@ private fun BrowseScreen(
 @Composable
 private fun SettingsScreen(
     appConfig: AppConfig,
+    catalogueStatus: CatalogueStatus,
     providers: List<Provider>,
     subscriptions: List<Subscription>,
     onSubscriptionToggle: (String) -> Unit,
 ) {
-    Column(
+    LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        BasicText(
-            text = "Subscriptions",
-            style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 22.sp, fontWeight = FontWeight.SemiBold),
-        )
-        providers.forEach { provider ->
+        item {
+            BasicText(
+                text = "Subscriptions",
+                style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 22.sp, fontWeight = FontWeight.SemiBold),
+            )
+        }
+        items(providers, key = { it.id }) { provider ->
             val enabled = subscriptions.firstOrNull { it.providerId == provider.id }?.enabled == true
             ProviderToggle(
                 provider = provider,
@@ -358,15 +421,20 @@ private fun SettingsScreen(
                 onClick = { onSubscriptionToggle(provider.id) },
             )
         }
-        Spacer(modifier = Modifier.height(12.dp))
-        BasicText(
-            text = "Integrations",
-            style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 22.sp, fontWeight = FontWeight.SemiBold),
-        )
-        IntegrationStatus(
-            name = "TMDb",
-            configured = appConfig.hasTmdbReadAccessToken,
-        )
+        item { Spacer(modifier = Modifier.height(12.dp)) }
+        item {
+            BasicText(
+                text = "Integrations",
+                style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 22.sp, fontWeight = FontWeight.SemiBold),
+            )
+        }
+        item {
+            IntegrationStatus(
+                name = "TMDb",
+                configured = appConfig.hasTmdbReadAccessToken,
+                status = catalogueStatus,
+            )
+        }
     }
 }
 
@@ -673,14 +741,19 @@ private fun ProviderToggle(
 private fun IntegrationStatus(
     name: String,
     configured: Boolean,
+    status: CatalogueStatus,
 ) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(8.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(68.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFF151B1E))
-            .border(1.dp, Color(0xFF273236), RoundedCornerShape(8.dp))
+            .onFocusChanged { focused = it.isFocused }
+            .clip(shape)
+            .background(if (focused) Color(0xFF232E32) else Color(0xFF151B1E))
+            .border(if (focused) 2.dp else 1.dp, if (focused) Color(0xFFE8C468) else Color(0xFF273236), shape)
+            .focusable()
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -691,14 +764,14 @@ private fun IntegrationStatus(
                 style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
             )
             BasicText(
-                text = if (configured) "Read token configured" else "Using sample catalogue",
+                text = if (configured) status.detail else "Using sample catalogue",
                 style = TextStyle(color = Color(0xFFA8B3B7), fontSize = 13.sp),
             )
         }
         BasicText(
-            text = if (configured) "Ready" else "Local",
+            text = if (configured) status.badge else "Local",
             style = TextStyle(
-                color = if (configured) Color(0xFFE8C468) else Color(0xFF8FA0A5),
+                color = if (status.highlighted) Color(0xFFE8C468) else Color(0xFF8FA0A5),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
             ),

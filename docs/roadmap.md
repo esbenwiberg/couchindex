@@ -10,11 +10,12 @@
 
 ## Milestone 2: catalogue vertical slice
 
-- TMDb authentication
-- Danish availability
-- Subscription configuration with local persistence
-- Browse rows and title details
-- Provider launch handoff
+- [x] TMDb authentication
+- [x] Danish availability discovery
+- [x] Subscription configuration with local persistence
+- [x] Browse rows and title details
+- [x] Provider launch handoff boundary
+- [ ] Provider-specific deep-link resolution
 
 ## Milestone 3: personal state
 
