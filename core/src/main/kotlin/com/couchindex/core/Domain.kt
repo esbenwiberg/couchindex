@@ -75,6 +75,17 @@ data class WatchedEntry(
     val watchedAtEpochMillis: Long,
 )
 
+enum class FeedbackValue {
+    Liked,
+    Disliked,
+}
+
+data class FeedbackEntry(
+    val titleId: TitleId,
+    val value: FeedbackValue,
+    val changedAtEpochMillis: Long,
+)
+
 data class Title(
     val id: TitleId,
     val name: String,

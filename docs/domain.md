@@ -33,6 +33,10 @@ A locally persisted title identity and the time it was added. The newest saved t
 ### Watched entry
 A locally persisted title identity and the time it was marked watched. Watched history is independent from watchlist membership.
 
+### Feedback entry
+A locally persisted Like or Dislike for one canonical title. Selecting the active value again clears it.
+Feedback is an input to CouchIndex recommendations and is not sent to a rating source.
+
 ### Watch state
 CouchIndex-owned state describing recent launch, watchlist membership, completion or the next known episode.
 
@@ -43,3 +47,4 @@ CouchIndex-owned state describing recent launch, watchlist membership, completio
 - A launch target may be absent or less specific than an offer.
 - Missing playback progress must not be represented as zero.
 - Provider playback state is not assumed to be observable.
+- Recommendations never imply an external rating or provider endorsement.

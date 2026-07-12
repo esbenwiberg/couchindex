@@ -28,7 +28,9 @@ Rating adapters enrich canonical titles independently. Ratings replace older val
 
 ## Data ownership
 
-Local storage owns subscriptions, watchlist entries, watched history, recent launches and CouchIndex Continue Watching state. External APIs own catalogue metadata, availability and third-party ratings.
+Local storage owns subscriptions, watchlist entries, watched history, recent launches, explicit title feedback,
+CouchIndex Continue Watching state and recommendation inputs. External APIs own catalogue metadata,
+availability and third-party ratings.
 
 ## Runtime behavior
 

@@ -39,12 +39,21 @@
 - [x] Runtime metadata
 - [x] Cross-provider search
 
+## Milestone 6: private recommendations
+
+- [x] TMDb genre metadata without additional requests
+- [x] Persistent local Like and Dislike feedback
+- [x] Feedback-driven For You row across enabled subscriptions
+- [x] Disliked-genre suppression and reversible feedback
+
 ## Later investigations
 
-- Media-session playback observation
-- Exact title and episode deep links where provider support permits
-- Usage-based completion heuristics
-- Phone companion
-- Trakt or Letterboxd integration
-- Additional rating source when access and usage terms are suitable
-- Recommendations based on personal feedback
+- [x] Media-session playback observation feasibility
+- [x] Exact title and episode deep-link feasibility
+- [x] Usage-based completion heuristic feasibility
+- [x] Phone companion architecture boundary
+- [x] Trakt and Letterboxd integration requirements
+- [x] Additional rating-source requirements
+- [x] Recommendations based on personal feedback
+
+See [the post-V1 integration investigation](investigations/post-v1-integrations.md) for decisions and remaining gates.
