@@ -9,7 +9,9 @@ This directory is the source of truth for product intent and architectural decis
 3. [Principles](principles.md)
 4. [Architecture](architecture.md)
 5. [Roadmap](roadmap.md)
-6. [Architecture Decision Records](adr/README.md)
+6. [Development](development.md)
+7. [Release preparation](release.md)
+8. [Architecture Decision Records](adr/README.md)
 
 ## Supporting documents
 

@@ -11,6 +11,8 @@ Children of a series. Episode-level identity is optional in early V1 flows but t
 ### Provider
 A streaming service such as Netflix, Disney+, Max or Viaplay.
 
+Providers retain their external TMDb provider identity. The app discovers the regional directory dynamically; built-in providers exist only as offline defaults.
+
 ### Offer
 A title's availability from a provider in a region and monetization type, such as subscription, rental or purchase.
 
@@ -20,8 +22,16 @@ A platform-specific destination used to open a title, series or episode in a pro
 ### Rating
 A score from a named source with its own scale, scope, vote count and retrieval timestamp.
 
+Titles retain explicit external identifiers so source adapters can join ratings without fuzzy title matching.
+
 ### Subscription
 A provider enabled by the user. Browse excludes unrelated providers by default.
+
+### Watchlist entry
+A locally persisted title identity and the time it was added. The newest saved title appears first in My Watchlist.
+
+### Watched entry
+A locally persisted title identity and the time it was marked watched. Watched history is independent from watchlist membership.
 
 ### Watch state
 CouchIndex-owned state describing recent launch, watchlist membership, completion or the next known episode.
