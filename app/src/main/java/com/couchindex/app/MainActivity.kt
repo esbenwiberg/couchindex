@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -66,6 +68,7 @@ import com.couchindex.app.launch.RecentLaunchStore
 import com.couchindex.app.launch.ResolvedProviderLaunch
 import com.couchindex.app.ratings.ImdbDatasetRatingAdapter
 import com.couchindex.app.settings.SubscriptionStore
+import com.couchindex.app.state.FeedbackStore
 import com.couchindex.app.state.WatchedStore
 import com.couchindex.app.state.WatchlistStore
 import com.couchindex.app.tmdb.TmdbCatalogueRepository
@@ -73,6 +76,7 @@ import com.couchindex.app.tmdb.TmdbDiscoverClient
 import com.couchindex.app.tmdb.TmdbProviderDirectory
 import com.couchindex.core.BrowseRow
 import com.couchindex.core.BuildHomeRows
+import com.couchindex.core.FeedbackValue
 import com.couchindex.core.LaunchTarget
 import com.couchindex.core.MediaKind
 import com.couchindex.core.Provider
@@ -121,6 +125,7 @@ private fun CouchIndexApp() {
     val providerLauncher = remember(context) { AndroidProviderLauncher(context) }
     val imdbRatingAdapter = remember(context) { ImdbDatasetRatingAdapter(context) }
     val recentLaunchStore = remember(context) { RecentLaunchStore(context) }
+    val feedbackStore = remember(context) { FeedbackStore(context) }
     val subscriptionStore = remember(context) { SubscriptionStore(context) }
     val watchedStore = remember(context) { WatchedStore(context) }
     val watchlistStore = remember(context) { WatchlistStore(context) }
@@ -143,6 +148,9 @@ private fun CouchIndexApp() {
     val watchedEntries = remember {
         mutableStateListOf(*watchedStore.load().toTypedArray())
     }
+    val feedbackEntries = remember {
+        mutableStateListOf(*feedbackStore.load().toTypedArray())
+    }
     var catalogue by remember { mutableStateOf(SampleCatalogue.titles) }
     var catalogueStatus by remember {
         mutableStateOf(
@@ -160,12 +168,14 @@ private fun CouchIndexApp() {
                 subscriptions = subscriptions,
                 recentLaunches = recentLaunches,
                 watchlistEntries = watchlistEntries,
+                feedbackEntries = feedbackEntries,
             )
         }
     }
     val watchlistedTitleIds = watchlistEntries.map { it.titleId }.toSet()
     val watchedTitleIds = watchedEntries.map { it.titleId }.toSet()
     val recentTitleIds = recentLaunches.map { it.titleId }.toSet()
+    val feedbackByTitleId = feedbackEntries.associate { it.titleId to it.value }
     val enabledProviderIds = subscriptions.filter { it.enabled }.map { it.providerId }.toSet()
     val providerSignature = providers.map { it.id to it.tmdbProviderId }
 
@@ -284,6 +294,7 @@ private fun CouchIndexApp() {
                 watchlistedTitleIds = watchlistedTitleIds,
                 watchedTitleIds = watchedTitleIds,
                 recentTitleIds = recentTitleIds,
+                selectedFeedback = selectedTitle?.let { feedbackByTitleId[it.id] },
                 onTitleSelected = { selectedTitle = it },
                 onSearchQueryChange = { searchQuery = it },
                 resolveLaunchTarget = providerLauncher::resolve,
@@ -329,6 +340,11 @@ private fun CouchIndexApp() {
                 onContinueWatchingRemove = { title ->
                     recentLaunches.clear()
                     recentLaunches.addAll(recentLaunchStore.remove(title.id))
+                },
+                onFeedbackChange = { title, value ->
+                    val updatedValue = value.takeUnless { feedbackByTitleId[title.id] == value }
+                    feedbackEntries.clear()
+                    feedbackEntries.addAll(feedbackStore.set(title.id, updatedValue))
                 },
             )
         }
@@ -390,6 +406,7 @@ private fun MainSurface(
     watchlistedTitleIds: Set<TitleId>,
     watchedTitleIds: Set<TitleId>,
     recentTitleIds: Set<TitleId>,
+    selectedFeedback: FeedbackValue?,
     onTitleSelected: (Title) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
@@ -398,6 +415,7 @@ private fun MainSurface(
     onWatchlistToggle: (Title) -> Unit,
     onWatchedToggle: (Title) -> Unit,
     onContinueWatchingRemove: (Title) -> Unit,
+    onFeedbackChange: (Title, FeedbackValue) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -444,11 +462,13 @@ private fun MainSurface(
             isWatchlisted = selectedTitle?.id in watchlistedTitleIds,
             isWatched = selectedTitle?.id in watchedTitleIds,
             isInContinueWatching = selectedTitle?.id in recentTitleIds,
+            feedback = selectedFeedback,
             resolveLaunchTarget = resolveLaunchTarget,
             onLaunchTargetSelected = onLaunchTargetSelected,
             onWatchlistToggle = onWatchlistToggle,
             onWatchedToggle = onWatchedToggle,
             onContinueWatchingRemove = onContinueWatchingRemove,
+            onFeedbackChange = onFeedbackChange,
         )
     }
 }
@@ -854,11 +874,13 @@ private fun DetailsPanel(
     isWatchlisted: Boolean,
     isWatched: Boolean,
     isInContinueWatching: Boolean,
+    feedback: FeedbackValue?,
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onWatchlistToggle: (Title) -> Unit,
     onWatchedToggle: (Title) -> Unit,
     onContinueWatchingRemove: (Title) -> Unit,
+    onFeedbackChange: (Title, FeedbackValue) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -867,6 +889,7 @@ private fun DetailsPanel(
             .clip(RoundedCornerShape(8.dp))
             .background(Color(0xE6111518))
             .border(1.dp, Color(0xFF2B363A), RoundedCornerShape(8.dp))
+            .verticalScroll(rememberScrollState())
             .padding(22.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -938,6 +961,23 @@ private fun DetailsPanel(
             selected = false,
             onClick = { onWatchedToggle(title) },
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FocusButton(
+                label = "Like",
+                selected = feedback == FeedbackValue.Liked,
+                onClick = { onFeedbackChange(title, FeedbackValue.Liked) },
+                modifier = Modifier.weight(1f),
+            )
+            FocusButton(
+                label = "Dislike",
+                selected = feedback == FeedbackValue.Disliked,
+                onClick = { onFeedbackChange(title, FeedbackValue.Disliked) },
+                modifier = Modifier.weight(1f),
+            )
+        }
         if (isInContinueWatching) {
             FocusButton(
                 label = "Remove from Continue Watching",
@@ -1098,6 +1138,7 @@ private fun FocusButton(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier.fillMaxWidth(),
 ) {
     var focused by remember { mutableStateOf(false) }
     val background = when {
@@ -1108,8 +1149,7 @@ private fun FocusButton(
     val textColor = if (focused) Color(0xFF0E1114) else Color(0xFFF4F1E8)
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .height(44.dp)
             .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(8.dp))

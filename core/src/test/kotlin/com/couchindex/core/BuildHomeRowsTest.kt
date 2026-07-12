@@ -67,4 +67,20 @@ class BuildHomeRowsTest {
         assertEquals(listOf("continue-watching", "watchlist"), rows.take(2).map { it.id })
         assertEquals(listOf(watchedFirst.id, watchedSecond.id), rows[1].titles.map { it.id })
     }
+
+    @Test
+    fun `personal recommendations follow watchlist and use explicit feedback`() {
+        val liked = SampleCatalogue.titles[0].copy(genreIds = setOf(878))
+        val recommended = SampleCatalogue.titles[1].copy(genreIds = setOf(878, 18))
+
+        val rows = buildHomeRows.invoke(
+            catalogue = listOf(liked, recommended),
+            subscriptions = SampleCatalogue.subscriptions,
+            recentLaunches = emptyList(),
+            feedbackEntries = listOf(FeedbackEntry(liked.id, FeedbackValue.Liked, 10)),
+        )
+
+        assertEquals("for-you", rows[1].id)
+        assertEquals(listOf(recommended.id), rows[1].titles.map { it.id })
+    }
 }

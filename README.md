@@ -109,3 +109,5 @@ Milestone 4 is complete with daily cached IMDb imports, separate TMDb and IMDb v
 Milestone 5 now includes real TMDb poster artwork across Home, Browse and Details, cached locally with generated fallbacks,
 plus movie and series runtime metadata loaded during the existing title-details enrichment pass.
 Milestone 5 is complete with a single search surface across the merged catalogues of every enabled subscription.
+Milestone 6 adds private, persistent Like and Dislike feedback plus a local For You row ranked from TMDb genre overlap.
+The post-V1 platform and integration investigations are documented without adding privileged permissions or unverified provider behavior.

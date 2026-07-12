@@ -59,6 +59,7 @@ object SampleCatalogue {
             ratings = ratings(imdb = 7.8, imdbVotes = 18420, tmdb = 78.0, tmdbVotes = 2410),
             launchTargets = launchTargets("netflix", "max"),
             isNewOnService = true,
+            genreIds = setOf(878, 18),
         ),
         Title(
             id = TitleId(tmdbId = 1002, mediaKind = MediaKind.Series),
@@ -71,6 +72,7 @@ object SampleCatalogue {
             ratings = ratings(imdb = 8.5, imdbVotes = 62300, tmdb = 83.0, tmdbVotes = 5100),
             launchTargets = launchTargets("disney"),
             isNewOnService = true,
+            genreIds = setOf(18, 35),
         ),
         Title(
             id = TitleId(tmdbId = 1003, mediaKind = MediaKind.Movie),
@@ -83,6 +85,7 @@ object SampleCatalogue {
             ratings = ratings(imdb = 7.3, imdbVotes = 9200, tmdb = 71.0, tmdbVotes = 840),
             launchTargets = launchTargets("max"),
             isHiddenGem = true,
+            genreIds = setOf(9648, 18),
         ),
         Title(
             id = TitleId(tmdbId = 1004, mediaKind = MediaKind.Series),
@@ -94,6 +97,7 @@ object SampleCatalogue {
             offers = subscriptionOffers("netflix"),
             ratings = ratings(imdb = 8.1, imdbVotes = 35100, tmdb = 80.0, tmdbVotes = 4300),
             launchTargets = launchTargets("netflix"),
+            genreIds = setOf(878, 18),
         ),
         Title(
             id = TitleId(tmdbId = 1005, mediaKind = MediaKind.Movie),
@@ -106,6 +110,7 @@ object SampleCatalogue {
             ratings = ratings(imdb = 7.6, imdbVotes = 14600, tmdb = 76.0, tmdbVotes = 1200),
             launchTargets = launchTargets("disney", "viaplay"),
             isHiddenGem = true,
+            genreIds = setOf(35, 18),
         ),
         Title(
             id = TitleId(tmdbId = 1006, mediaKind = MediaKind.Movie),
@@ -118,6 +123,7 @@ object SampleCatalogue {
             ratings = ratings(imdb = 8.0, imdbVotes = 6300, tmdb = 79.0, tmdbVotes = 940),
             launchTargets = launchTargets("viaplay"),
             isNewOnService = true,
+            genreIds = setOf(99),
         ),
     )
 

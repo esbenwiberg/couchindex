@@ -75,6 +75,17 @@ data class WatchedEntry(
     val watchedAtEpochMillis: Long,
 )
 
+enum class FeedbackValue {
+    Liked,
+    Disliked,
+}
+
+data class FeedbackEntry(
+    val titleId: TitleId,
+    val value: FeedbackValue,
+    val changedAtEpochMillis: Long,
+)
+
 data class Title(
     val id: TitleId,
     val name: String,
@@ -89,6 +100,7 @@ data class Title(
     val isHiddenGem: Boolean = false,
     val externalIds: Map<String, String> = emptyMap(),
     val posterUrl: String? = null,
+    val genreIds: Set<Int> = emptySet(),
 )
 
 data class BrowseRow(

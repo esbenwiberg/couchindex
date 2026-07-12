@@ -96,6 +96,7 @@ class TmdbCatalogueRepository(
                     runtimeMinutes = null,
                     synopsis = item.overview,
                     posterUrl = item.posterPath?.let { path -> "$TMDB_IMAGE_BASE_URL$path" },
+                    genreIds = item.genreIds,
                     offers = matchedProviderIds.map { providerId ->
                         Offer(
                             providerId = providerId,

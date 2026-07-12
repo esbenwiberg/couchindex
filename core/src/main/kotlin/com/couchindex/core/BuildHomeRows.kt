@@ -2,12 +2,14 @@ package com.couchindex.core
 
 class BuildHomeRows(
     private val ratingQualityPolicy: RatingQualityPolicy = RatingQualityPolicy(),
+    private val recommendTitles: RecommendTitles = RecommendTitles(),
 ) {
     fun invoke(
         catalogue: List<Title>,
         subscriptions: List<Subscription>,
         recentLaunches: List<RecentLaunch>,
         watchlistEntries: List<WatchlistEntry> = emptyList(),
+        feedbackEntries: List<FeedbackEntry> = emptyList(),
         region: String = "DK",
     ): List<BrowseRow> {
         val enabledProviderIds = subscriptions
@@ -37,6 +39,11 @@ class BuildHomeRows(
                 id = "watchlist",
                 label = "My Watchlist",
                 titles = watchlist,
+            ),
+            BrowseRow(
+                id = "for-you",
+                label = "For You",
+                titles = recommendTitles.invoke(availableTitles, feedbackEntries),
             ),
             BrowseRow(
                 id = "new-on-my-services",

@@ -32,6 +32,7 @@ class TmdbCatalogueRepositoryTest {
             posterPath = "/poster.jpg",
             voteAverage = 8.1,
             voteCount = 12_400,
+            genreIds = setOf(878, 18),
         )
         val source = TmdbDiscoverSource { query ->
             TmdbDiscoverPage(
@@ -63,6 +64,7 @@ class TmdbCatalogueRepositoryTest {
         assertEquals(8.1, titles.single().ratings.single().value, 0.0)
         assertEquals(12_400, titles.single().ratings.single().voteCount)
         assertEquals("https://image.tmdb.org/t/p/w500/poster.jpg", titles.single().posterUrl)
+        assertEquals(setOf(878, 18), titles.single().genreIds)
     }
 
     @Test
