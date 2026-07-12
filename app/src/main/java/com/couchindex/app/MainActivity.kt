@@ -51,6 +51,7 @@ import com.couchindex.app.launch.AndroidProviderLauncher
 import com.couchindex.app.launch.ProviderLaunchResult
 import com.couchindex.app.launch.RecentLaunchStore
 import com.couchindex.app.launch.ResolvedProviderLaunch
+import com.couchindex.app.ratings.ImdbDatasetRatingAdapter
 import com.couchindex.app.settings.SubscriptionStore
 import com.couchindex.app.state.WatchedStore
 import com.couchindex.app.state.WatchlistStore
@@ -103,6 +104,7 @@ private fun CouchIndexApp() {
     val context = LocalContext.current
     val appConfig = remember { AppConfigLoader.load() }
     val providerLauncher = remember(context) { AndroidProviderLauncher(context) }
+    val imdbRatingAdapter = remember(context) { ImdbDatasetRatingAdapter(context) }
     val recentLaunchStore = remember(context) { RecentLaunchStore(context) }
     val subscriptionStore = remember(context) { SubscriptionStore(context) }
     val watchedStore = remember(context) { WatchedStore(context) }
@@ -211,6 +213,7 @@ private fun CouchIndexApp() {
             TmdbCatalogueRepository(
                 source = tmdbClient,
                 providers = providers,
+                batchRatingAdapters = listOf(imdbRatingAdapter),
             ).discoverSubscriptionTitles(
                 region = "DK",
                 providerIds = enabledProviderIds,

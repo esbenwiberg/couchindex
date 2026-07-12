@@ -51,7 +51,7 @@ The app is local-first. A backend is intentionally excluded from V1.
 
 - TMDb: canonical catalogue identity, metadata, artwork and Danish provider availability
 - IMDb datasets: rating and vote count
-- Additional rating adapter: Rotten Tomatoes and other sources where legally and technically available
+- Future rating adapters: Rotten Tomatoes and other sources where legally and technically available
 - Local database: subscriptions, watchlist, watched history, recent launches and Continue Watching state
 
 External scores are never blended into a fake universal rating. Vote count is retained so browse ranking
@@ -105,3 +105,4 @@ Milestone 3 now also includes a persistent local watchlist surfaced directly aft
 manual removal from Continue Watching and independent watched history.
 Milestone 4 now uses source vote counts to keep tiny samples out of Highly Rated and to discover Hidden Gems on the live catalogue.
 TMDb titles also retain explicit IMDb and Wikidata identifiers for source-safe rating enrichment.
+Milestone 4 is complete with daily cached IMDb imports, separate TMDb and IMDb vote counts, and vote-aware quality rows.

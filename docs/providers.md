@@ -14,6 +14,8 @@ IMDb and TMDb are initial rating sources. Rotten Tomatoes or other sources may b
 
 TMDb external-ID endpoints provide the explicit IMDb title identifiers used for dataset joins. Lookups are bounded and failure-tolerant; CouchIndex does not correlate ratings by fuzzy title text.
 
+IMDb ratings come from the official non-commercial `title.ratings.tsv.gz` dataset. CouchIndex caches it for 24 hours and streams only the IMDb IDs present in the current catalogue; an unavailable dataset leaves TMDb ratings intact.
+
 Every rating retains:
 
 - source

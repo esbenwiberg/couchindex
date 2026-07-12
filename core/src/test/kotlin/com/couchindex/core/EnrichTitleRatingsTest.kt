@@ -39,6 +39,22 @@ class EnrichTitleRatingsTest {
         assertEquals(listOf("IMDb"), enriched.ratings.map { it.source })
     }
 
+    @Test
+    fun `batch adapter enriches matching titles and preserves order`() {
+        val second = SampleCatalogue.titles[1]
+        val enriched = EnrichTitleBatchRatings(
+            adapters = listOf(
+                BatchRatingAdapter {
+                    mapOf(second.id to listOf(rating(source = "IMDb", value = 8.6, votes = 70_000)))
+                },
+            ),
+        ).invoke(listOf(title.copy(ratings = emptyList()), second.copy(ratings = emptyList())))
+
+        assertEquals(listOf(title.id, second.id), enriched.map { it.id })
+        assertEquals(emptyList<String>(), enriched.first().ratings.map { it.source })
+        assertEquals(listOf("IMDb"), enriched.last().ratings.map { it.source })
+    }
+
     private fun rating(source: String, value: Double, votes: Int): Rating =
         Rating(
             source = source,

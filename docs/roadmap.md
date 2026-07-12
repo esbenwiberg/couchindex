@@ -28,10 +28,9 @@
 
 ## Milestone 4: rating enrichment
 
-- [ ] IMDb rating import or lookup
+- [x] IMDb rating import
 - [x] TMDb vote counts
 - [x] Replaceable rating adapter pipeline
-- [ ] Additional rating source
 - [x] Vote-aware quality browse filters
 
 ## Later investigations
@@ -41,4 +40,5 @@
 - Usage-based completion heuristics
 - Phone companion
 - Trakt or Letterboxd integration
+- Additional rating source when access and usage terms are suitable
 - Recommendations based on personal feedback

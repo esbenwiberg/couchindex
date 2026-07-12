@@ -1,6 +1,8 @@
 package com.couchindex.app.tmdb
 
 import com.couchindex.core.CatalogueRepository
+import com.couchindex.core.BatchRatingAdapter
+import com.couchindex.core.EnrichTitleBatchRatings
 import com.couchindex.core.EnrichTitleRatings
 import com.couchindex.core.LaunchTarget
 import com.couchindex.core.MediaKind
@@ -17,15 +19,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 
 class TmdbCatalogueRepository(
     private val source: TmdbDiscoverSource,
     providers: List<Provider>,
     private val externalIdSource: TmdbExternalIdSource? = source as? TmdbExternalIdSource,
     ratingAdapters: List<RatingAdapter> = emptyList(),
+    batchRatingAdapters: List<BatchRatingAdapter> = emptyList(),
     private val retrievedAt: () -> String = { Instant.now().toString() },
 ) : CatalogueRepository {
     private val enrichTitleRatings = EnrichTitleRatings(ratingAdapters)
+    private val enrichTitleBatchRatings = EnrichTitleBatchRatings(batchRatingAdapters)
     private val providersById = providers.associateBy { it.id }
     private val tmdbProviderIds = providers.mapNotNull { provider ->
         provider.tmdbProviderId?.let { provider.id to it }
@@ -70,7 +75,8 @@ class TmdbCatalogueRepository(
                 }
             }
         }
-        identifiedTitles.map(enrichTitleRatings::invoke)
+        val individuallyEnriched = identifiedTitles.map(enrichTitleRatings::invoke)
+        withContext(Dispatchers.IO) { enrichTitleBatchRatings.invoke(individuallyEnriched) }
     }
 
     private fun mergeOffers(discovered: List<DiscoveredOffer>, region: String): List<Title> {
