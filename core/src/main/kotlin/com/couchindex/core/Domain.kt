@@ -88,6 +88,7 @@ data class Title(
     val isNewOnService: Boolean = false,
     val isHiddenGem: Boolean = false,
     val externalIds: Map<String, String> = emptyMap(),
+    val posterUrl: String? = null,
 )
 
 data class BrowseRow(

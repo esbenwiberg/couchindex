@@ -106,3 +106,6 @@ manual removal from Continue Watching and independent watched history.
 Milestone 4 now uses source vote counts to keep tiny samples out of Highly Rated and to discover Hidden Gems on the live catalogue.
 TMDb titles also retain explicit IMDb and Wikidata identifiers for source-safe rating enrichment.
 Milestone 4 is complete with daily cached IMDb imports, separate TMDb and IMDb vote counts, and vote-aware quality rows.
+Milestone 5 now includes real TMDb poster artwork across Home, Browse and Details, cached locally with generated fallbacks,
+plus movie and series runtime metadata loaded during the existing title-details enrichment pass.
+Milestone 5 is complete with a single search surface across the merged catalogues of every enabled subscription.
