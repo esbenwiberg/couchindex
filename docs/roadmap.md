@@ -33,6 +33,12 @@
 - [x] Replaceable rating adapter pipeline
 - [x] Vote-aware quality browse filters
 
+## Milestone 5: catalogue experience
+
+- [x] Real TMDb artwork with cached loading and resilient fallbacks
+- [ ] Runtime metadata
+- [ ] Cross-provider search
+
 ## Later investigations
 
 - Media-session playback observation

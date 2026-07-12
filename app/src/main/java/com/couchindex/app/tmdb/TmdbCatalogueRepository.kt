@@ -93,6 +93,7 @@ class TmdbCatalogueRepository(
                     mediaKind = item.mediaKind,
                     runtimeMinutes = null,
                     synopsis = item.overview,
+                    posterUrl = item.posterPath?.let { path -> "$TMDB_IMAGE_BASE_URL$path" },
                     offers = matchedProviderIds.map { providerId ->
                         Offer(
                             providerId = providerId,
@@ -144,5 +145,6 @@ class TmdbCatalogueRepository(
 
     companion object {
         private const val EXTERNAL_ID_CONCURRENCY = 8
+        private const val TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
     }
 }

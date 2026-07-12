@@ -62,6 +62,7 @@ class TmdbCatalogueRepositoryTest {
         assertEquals("com.netflix.ninja", titles.single().launchTargets.first().androidPackageName)
         assertEquals(8.1, titles.single().ratings.single().value, 0.0)
         assertEquals(12_400, titles.single().ratings.single().voteCount)
+        assertEquals("https://image.tmdb.org/t/p/w500/poster.jpg", titles.single().posterUrl)
     }
 
     @Test

@@ -39,12 +39,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.couchindex.app.config.AppConfig
 import com.couchindex.app.config.AppConfigLoader
 import com.couchindex.app.launch.AndroidProviderLauncher
@@ -608,8 +610,6 @@ private fun TitleCard(
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(8.dp)
     val borderColor = if (focused) Color(0xFFE8C468) else Color(0xFF2B363A)
-    val background = posterColor(title)
-
     Column(
         modifier = Modifier
             .width(156.dp)
@@ -627,7 +627,7 @@ private fun TitleCard(
                 .fillMaxWidth()
                 .height(180.dp)
                 .clip(RoundedCornerShape(6.dp))
-                .background(background),
+                .background(posterColor(title)),
         ) {
             BasicText(
                 text = title.name.take(2).uppercase(),
@@ -638,12 +638,19 @@ private fun TitleCard(
                     fontWeight = FontWeight.Black,
                 ),
             )
+            AsyncImage(
+                model = title.posterUrl,
+                contentDescription = "${title.name} poster",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
             BasicText(
                 text = title.mediaKind.label,
                 modifier = Modifier
                     .align(Alignment.TopStart)
+                    .background(Color(0xCC0E1114), RoundedCornerShape(4.dp))
                     .padding(8.dp),
-                style = TextStyle(color = Color(0xFF0E1114), fontSize = 11.sp, fontWeight = FontWeight.Bold),
+                style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 11.sp, fontWeight = FontWeight.Bold),
             )
         }
         BasicText(
@@ -693,6 +700,12 @@ private fun BrowseListItem(
             BasicText(
                 text = title.name.take(1).uppercase(),
                 style = TextStyle(color = Color(0xFF0E1114), fontSize = 22.sp, fontWeight = FontWeight.Black),
+            )
+            AsyncImage(
+                model = title.posterUrl,
+                contentDescription = "${title.name} poster",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
             )
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -760,6 +773,12 @@ private fun DetailsPanel(
             BasicText(
                 text = title.name.take(2).uppercase(),
                 style = TextStyle(color = Color(0xFF0E1114), fontSize = 42.sp, fontWeight = FontWeight.Black),
+            )
+            AsyncImage(
+                model = title.posterUrl,
+                contentDescription = "${title.name} poster",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
             )
         }
         BasicText(
