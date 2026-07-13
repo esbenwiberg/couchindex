@@ -85,6 +85,13 @@ Capture the four Android TV listing surfaces after emulator validation with:
 
 The 1920x1080 PNGs are written under `build/play-store/tv/`, which is ignored by git.
 
+Regenerate and dimension-check the launcher and Play listing graphics from their SVG
+sources with:
+
+```sh
+./scripts/render-play-assets.sh
+```
+
 ## Catalogue cache
 
 The last successful live provider directory and enriched catalogue are stored atomically in the app-private file

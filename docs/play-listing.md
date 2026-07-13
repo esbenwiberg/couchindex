@@ -56,8 +56,19 @@ Suggested order and alt text:
 3. `03-search.png`: Search results for Interstellar across configured subscriptions.
 4. `04-settings.png`: Subscription selection and catalogue integration status.
 
-Use `app/src/main/res/drawable-xhdpi/couchindex_banner.png` as the required Android TV
-banner. A separate high-resolution 512x512 Play listing icon is still required.
+Prepared graphics under `design/play-store/`:
+
+- `couchindex_icon_512.png`: 512x512 Play listing icon with alpha
+- `couchindex_feature_1024x500.png`: required feature graphic
+- `couchindex_tv_banner_1280x720.png`: required Play Android TV banner
+
+Regenerate all listing graphics with `scripts/render-play-assets.sh`.
+
+The in-app launcher separately uses the required xhdpi 320x180 banner at
+`app/src/main/res/drawable-xhdpi/couchindex_banner.png`.
+
+Suggested feature-graphic alt text: CouchIndex branding between two abstract title
+cards with the phrase Your services. One index.
 
 ## Owner-supplied fields
 

@@ -62,6 +62,7 @@
 - [x] Produce and validate a release Android App Bundle
 - [x] Add modern backup and device-transfer exclusions for local personal state
 - [x] Capture final Android TV store screenshots
+- [x] Prepare Play icon, feature graphic and Android TV listing banner
 - [ ] Validate provider handoffs on physical Google TV hardware
 - [ ] Complete Play listing, privacy and data-safety declarations
 - [x] Draft Play listing copy, privacy policy and data-flow evidence
