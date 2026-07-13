@@ -77,6 +77,7 @@ import com.couchindex.app.settings.SubscriptionStore
 import com.couchindex.app.settings.KidsSettings
 import com.couchindex.app.settings.KidsSettingsStore
 import com.couchindex.app.state.FeedbackStore
+import com.couchindex.app.state.KidsCatalogueOverrideStore
 import com.couchindex.app.state.WatchedStore
 import com.couchindex.app.state.WatchlistStore
 import com.couchindex.app.tmdb.TmdbCatalogueRepository
@@ -87,6 +88,8 @@ import com.couchindex.core.BuildHomeRows
 import com.couchindex.core.FeedbackValue
 import com.couchindex.core.LaunchTarget
 import com.couchindex.core.KidsEligibilityPolicy
+import com.couchindex.core.KidsCatalogueOverride
+import com.couchindex.core.KidsOverrideDecision
 import com.couchindex.core.MediaKind
 import com.couchindex.core.Provider
 import com.couchindex.core.Rating
@@ -113,6 +116,7 @@ private enum class Destination(val label: String) {
     Browse("Browse"),
     Search("Search"),
     Settings("Settings"),
+    ParentalControls("Parental controls"),
 }
 
 private sealed interface ParentAction {
@@ -120,6 +124,13 @@ private sealed interface ParentAction {
     data object ExitKids : ParentAction
     data object ToggleStartInKids : ParentAction
     data class SetMaximumAge(val age: Int) : ParentAction
+    data object OpenParentalControls : ParentAction
+    data class SetKidsOverride(
+        val titleId: TitleId,
+        val titleName: String,
+        val decision: KidsOverrideDecision?,
+        val allowsOverAge: Boolean = false,
+    ) : ParentAction
 }
 
 private sealed interface PinFlow {
@@ -162,6 +173,7 @@ private fun CouchIndexApp() {
     val context = LocalContext.current
     val appConfig = remember { AppConfigLoader.load() }
     val kidsSettingsStore = remember(context) { KidsSettingsStore(context) }
+    val kidsOverrideStore = remember(context) { KidsCatalogueOverrideStore(context) }
     var kidsSettings by remember { mutableStateOf(kidsSettingsStore.load()) }
     var viewerProfile by remember { mutableStateOf(kidsSettingsStore.initialProfile()) }
     var pinFlow by remember { mutableStateOf<PinFlow?>(null) }
@@ -176,6 +188,7 @@ private fun CouchIndexApp() {
     val providerLauncher = remember(context) { AndroidProviderLauncher(context) }
     val imdbRatingAdapter = remember(context) { ImdbDatasetRatingAdapter(context) }
     val recentLaunchStore = remember(context, viewerProfile) { RecentLaunchStore(context, viewerProfile) }
+    val kidsRecentLaunchStore = remember(context) { RecentLaunchStore(context, ViewerProfile.Kids) }
     val feedbackStore = remember(context, viewerProfile) { FeedbackStore(context, viewerProfile) }
     val subscriptionStore = remember(context) { SubscriptionStore(context) }
     val watchedStore = remember(context, viewerProfile) { WatchedStore(context, viewerProfile) }
@@ -214,6 +227,9 @@ private fun CouchIndexApp() {
     val feedbackEntries = remember(viewerProfile) {
         mutableStateListOf(*feedbackStore.load().toTypedArray())
     }
+    val kidsOverrides = remember {
+        mutableStateListOf(*kidsOverrideStore.load().toTypedArray())
+    }
     var catalogue by remember { mutableStateOf(cachedSnapshot?.titles ?: SampleCatalogue.titles) }
     var catalogueStatus by remember {
         mutableStateOf(
@@ -228,7 +244,7 @@ private fun CouchIndexApp() {
     val visibleCatalogue by remember(viewerProfile, kidsSettings.maximumAge) {
         derivedStateOf {
             if (viewerProfile == ViewerProfile.Kids) {
-                kidsEligibilityPolicy.filter(catalogue, kidsSettings.maximumAge)
+                kidsEligibilityPolicy.filter(catalogue, kidsSettings.maximumAge, kidsOverrides)
             } else {
                 catalogue
             }
@@ -255,6 +271,7 @@ private fun CouchIndexApp() {
     var destination by remember { mutableStateOf(Destination.Home) }
     var selectedTitle by remember { mutableStateOf<Title?>(null) }
     var searchQuery by remember { mutableStateOf("") }
+    var parentalSearchQuery by remember { mutableStateOf("") }
 
     fun completeParentAction(action: ParentAction) {
         when (action) {
@@ -280,6 +297,27 @@ private fun CouchIndexApp() {
             is ParentAction.SetMaximumAge -> {
                 kidsSettingsStore.setMaximumAge(action.age)
                 kidsSettings = kidsSettingsStore.load()
+            }
+
+            ParentAction.OpenParentalControls -> {
+                destination = Destination.ParentalControls
+                selectedTitle = null
+                parentalSearchQuery = ""
+            }
+
+            is ParentAction.SetKidsOverride -> {
+                kidsOverrides.clear()
+                kidsOverrides.addAll(
+                    kidsOverrideStore.set(
+                        titleId = action.titleId,
+                        titleName = action.titleName,
+                        decision = action.decision,
+                        allowsOverAge = action.allowsOverAge,
+                    ),
+                )
+                if (action.decision == KidsOverrideDecision.Blocked) {
+                    kidsRecentLaunchStore.remove(action.titleId)
+                }
             }
         }
     }
@@ -437,16 +475,20 @@ private fun CouchIndexApp() {
                 catalogueStatus = catalogueStatus,
                 viewerProfile = viewerProfile,
                 kidsSettings = kidsSettings,
+                catalogue = catalogue,
+                kidsOverrides = kidsOverrides,
                 providers = providers,
                 subscriptions = subscriptions,
                 selectedTitle = selectedTitle,
                 searchQuery = searchQuery,
+                parentalSearchQuery = parentalSearchQuery,
                 watchlistedTitleIds = watchlistedTitleIds,
                 watchedTitleIds = watchedTitleIds,
                 recentTitleIds = recentTitleIds,
                 selectedFeedback = selectedTitle?.let { feedbackByTitleId[it.id] },
                 onTitleSelected = { selectedTitle = it },
                 onSearchQueryChange = { searchQuery = it },
+                onParentalSearchQueryChange = { parentalSearchQuery = it },
                 resolveLaunchTarget = providerLauncher::resolve,
                 onLaunchTargetSelected = { title, target ->
                     when (providerLauncher.launch(target)) {
@@ -479,6 +521,9 @@ private fun CouchIndexApp() {
                 onMaximumAgeSelected = { age ->
                     requestParentAction(ParentAction.SetMaximumAge(age), requiresPin = true)
                 },
+                onOpenParentalControls = {
+                    requestParentAction(ParentAction.OpenParentalControls, requiresPin = true)
+                },
                 onPrivacyPolicySelected = {
                     runCatching {
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PrivacyPolicy.URL)))
@@ -509,6 +554,17 @@ private fun CouchIndexApp() {
                     feedbackEntries.clear()
                     feedbackEntries.addAll(feedbackStore.set(title.id, updatedValue))
                 },
+                onKidsOverrideChange = { title, decision, allowsOverAge ->
+                    requestParentAction(
+                        ParentAction.SetKidsOverride(
+                            titleId = title.id,
+                            titleName = title.name,
+                            decision = decision,
+                            allowsOverAge = allowsOverAge,
+                        ),
+                        requiresPin = destination != Destination.ParentalControls,
+                    )
+                },
             )
         }
         pinFlow?.let { flow ->
@@ -519,7 +575,7 @@ private fun CouchIndexApp() {
                 },
                 message = when (flow) {
                     is PinFlow.Setup -> "Use four digits. Clearing app data resets a forgotten PIN."
-                    is PinFlow.Verify -> "Parent access is required for this change."
+                    is PinFlow.Verify -> flow.action.parentPinMessage(kidsSettings.maximumAge)
                 },
                 error = flow.error,
                 onCancel = { pinFlow = null },
@@ -600,7 +656,10 @@ private fun DestinationRail(
         )
         Spacer(modifier = Modifier.height(18.dp))
         Destination.entries
-            .filter { destination -> viewerProfile == ViewerProfile.Adult || destination != Destination.Settings }
+            .filter { destination ->
+                destination != Destination.ParentalControls &&
+                    (viewerProfile == ViewerProfile.Adult || destination != Destination.Settings)
+            }
             .forEach { destination ->
             FocusButton(
                 label = destination.label,
@@ -630,26 +689,32 @@ private fun MainSurface(
     catalogueStatus: CatalogueStatus,
     viewerProfile: ViewerProfile,
     kidsSettings: KidsSettings,
+    catalogue: List<Title>,
+    kidsOverrides: List<KidsCatalogueOverride>,
     providers: List<Provider>,
     subscriptions: List<Subscription>,
     selectedTitle: Title?,
     searchQuery: String,
+    parentalSearchQuery: String,
     watchlistedTitleIds: Set<TitleId>,
     watchedTitleIds: Set<TitleId>,
     recentTitleIds: Set<TitleId>,
     selectedFeedback: FeedbackValue?,
     onTitleSelected: (Title) -> Unit,
     onSearchQueryChange: (String) -> Unit,
+    onParentalSearchQueryChange: (String) -> Unit,
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onSubscriptionToggle: (String) -> Unit,
     onStartInKidsModeToggle: () -> Unit,
     onMaximumAgeSelected: (Int) -> Unit,
+    onOpenParentalControls: () -> Unit,
     onPrivacyPolicySelected: () -> Unit,
     onWatchlistToggle: (Title) -> Unit,
     onWatchedToggle: (Title) -> Unit,
     onContinueWatchingRemove: (Title) -> Unit,
     onFeedbackChange: (Title, FeedbackValue) -> Unit,
+    onKidsOverrideChange: (Title, KidsOverrideDecision?, Boolean) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -695,7 +760,17 @@ private fun MainSurface(
                     onSubscriptionToggle = onSubscriptionToggle,
                     onStartInKidsModeToggle = onStartInKidsModeToggle,
                     onMaximumAgeSelected = onMaximumAgeSelected,
+                    onOpenParentalControls = onOpenParentalControls,
                     onPrivacyPolicySelected = onPrivacyPolicySelected,
+                )
+
+                Destination.ParentalControls -> ParentalControlsScreen(
+                    catalogue = catalogue,
+                    query = parentalSearchQuery,
+                    overrides = kidsOverrides,
+                    providers = providers,
+                    onQueryChange = onParentalSearchQueryChange,
+                    onTitleSelected = onTitleSelected,
                 )
             }
         }
@@ -706,12 +781,16 @@ private fun MainSurface(
             isWatched = selectedTitle?.id in watchedTitleIds,
             isInContinueWatching = selectedTitle?.id in recentTitleIds,
             feedback = selectedFeedback,
+            viewerProfile = viewerProfile,
+            kidsMaximumAge = kidsSettings.maximumAge,
+            kidsOverride = selectedTitle?.let { title -> kidsOverrides.firstOrNull { it.titleId == title.id } },
             resolveLaunchTarget = resolveLaunchTarget,
             onLaunchTargetSelected = onLaunchTargetSelected,
             onWatchlistToggle = onWatchlistToggle,
             onWatchedToggle = onWatchedToggle,
             onContinueWatchingRemove = onContinueWatchingRemove,
             onFeedbackChange = onFeedbackChange,
+            onKidsOverrideChange = onKidsOverrideChange,
         )
     }
 }
@@ -763,6 +842,7 @@ private fun SearchScreen(
 private fun SearchInput(
     query: String,
     onQueryChange: (String) -> Unit,
+    placeholder: String = "Search titles",
 ) {
     var focused by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
@@ -800,7 +880,7 @@ private fun SearchInput(
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
                 if (query.isEmpty()) {
                     BasicText(
-                        text = "Search titles",
+                        text = placeholder,
                         style = TextStyle(color = Color(0xFF8FA0A5), fontSize = 18.sp),
                     )
                 }
@@ -910,6 +990,7 @@ private fun SettingsScreen(
     onSubscriptionToggle: (String) -> Unit,
     onStartInKidsModeToggle: () -> Unit,
     onMaximumAgeSelected: (Int) -> Unit,
+    onOpenParentalControls: () -> Unit,
     onPrivacyPolicySelected: () -> Unit,
 ) {
     LazyColumn(
@@ -937,6 +1018,13 @@ private fun SettingsScreen(
                 label = "Maximum age: ${kidsSettings.maximumAge}+",
                 selected = false,
                 onClick = { onMaximumAgeSelected(nextAge) },
+            )
+        }
+        item {
+            FocusButton(
+                label = "Manage Kids catalogue",
+                selected = false,
+                onClick = onOpenParentalControls,
             )
         }
         item { Spacer(modifier = Modifier.height(12.dp)) }
@@ -982,6 +1070,100 @@ private fun SettingsScreen(
                 status = catalogueStatus,
             )
         }
+    }
+}
+
+@Composable
+private fun ParentalControlsScreen(
+    catalogue: List<Title>,
+    query: String,
+    overrides: List<KidsCatalogueOverride>,
+    providers: List<Provider>,
+    onQueryChange: (String) -> Unit,
+    onTitleSelected: (Title) -> Unit,
+) {
+    val searchCatalogue = remember { SearchCatalogue() }
+    val catalogueById = catalogue.associateBy { it.id }
+    val overriddenTitles = overrides.map { override ->
+        catalogueById[override.titleId] ?: override.toPlaceholderTitle()
+    }
+    val titles = if (query.isBlank()) {
+        overriddenTitles
+    } else {
+        searchCatalogue.invoke(catalogue, query)
+    }
+    val overrideByTitleId = overrides.associateBy { it.titleId }
+    val blockedCount = overrides.count { it.decision == KidsOverrideDecision.Blocked }
+    val allowedCount = overrides.count { it.decision == KidsOverrideDecision.Allowed }
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        SearchInput(
+            query = query,
+            onQueryChange = onQueryChange,
+            placeholder = "Find a title to allow or block",
+        )
+        BasicText(
+            text = if (query.isBlank()) {
+                "$blockedCount hidden / $allowedCount manually allowed"
+            } else {
+                "${titles.size} matching titles"
+            },
+            modifier = Modifier.height(20.dp),
+            style = TextStyle(color = Color(0xFF8FA0A5), fontSize = 13.sp),
+        )
+        if (titles.isEmpty()) {
+            EmptyRow(label = if (query.isBlank()) "No Kids catalogue overrides" else "No matching titles")
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(titles, key = { "parent-${it.id.mediaKind}-${it.id.tmdbId}" }) { title ->
+                    ParentalControlListItem(
+                        title = title,
+                        providers = providers,
+                        override = overrideByTitleId[title.id],
+                        onTitleSelected = onTitleSelected,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParentalControlListItem(
+    title: Title,
+    providers: List<Provider>,
+    override: KidsCatalogueOverride?,
+    onTitleSelected: (Title) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        BrowseListItem(title = title, providers = providers, onTitleSelected = onTitleSelected)
+        BasicText(
+            text = when (override?.decision) {
+                KidsOverrideDecision.Blocked -> "Hidden from Kids"
+                KidsOverrideDecision.Allowed -> if (override.allowsOverAge) {
+                    "Allowed with age exception"
+                } else {
+                    "Manually allowed"
+                }
+                null -> "Uses age-rating rule"
+            },
+            modifier = Modifier.padding(start = 16.dp),
+            style = TextStyle(
+                color = if (override?.decision == KidsOverrideDecision.Blocked) {
+                    Color(0xFFE18B78)
+                } else {
+                    Color(0xFF8BC7B5)
+                },
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
+        )
     }
 }
 
@@ -1165,12 +1347,16 @@ private fun DetailsPanel(
     isWatched: Boolean,
     isInContinueWatching: Boolean,
     feedback: FeedbackValue?,
+    viewerProfile: ViewerProfile,
+    kidsMaximumAge: Int,
+    kidsOverride: KidsCatalogueOverride?,
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onWatchlistToggle: (Title) -> Unit,
     onWatchedToggle: (Title) -> Unit,
     onContinueWatchingRemove: (Title) -> Unit,
     onFeedbackChange: (Title, FeedbackValue) -> Unit,
+    onKidsOverrideChange: (Title, KidsOverrideDecision?, Boolean) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -1274,6 +1460,44 @@ private fun DetailsPanel(
                 selected = false,
                 onClick = { onContinueWatchingRemove(title) },
             )
+        }
+        if (viewerProfile == ViewerProfile.Adult) {
+            val certificationAge = title.certification?.minimumAge
+            val baseEligible = certificationAge != null && certificationAge <= kidsMaximumAge
+            val overrideLabel = when (kidsOverride?.decision) {
+                KidsOverrideDecision.Blocked -> "Hidden from Kids"
+                KidsOverrideDecision.Allowed -> if (kidsOverride.allowsOverAge) {
+                    "Allowed in Kids with age exception"
+                } else {
+                    "Manually allowed in Kids"
+                }
+                null -> if (baseEligible) "Allowed by age rating" else "Hidden by age-rating rule"
+            }
+            LabelBlock(label = "Kids catalogue", value = overrideLabel)
+            when (kidsOverride?.decision) {
+                KidsOverrideDecision.Blocked,
+                KidsOverrideDecision.Allowed,
+                -> FocusButton(
+                    label = "Restore age-rating rule",
+                    selected = false,
+                    onClick = { onKidsOverrideChange(title, null, false) },
+                )
+
+                null -> if (baseEligible) {
+                    FocusButton(
+                        label = "Hide from Kids",
+                        selected = false,
+                        onClick = { onKidsOverrideChange(title, KidsOverrideDecision.Blocked, false) },
+                    )
+                } else {
+                    val overAge = certificationAge?.let { it > kidsMaximumAge } == true
+                    FocusButton(
+                        label = if (overAge) "Allow ${certificationAge}+ title in Kids" else "Allow in Kids",
+                        selected = false,
+                        onClick = { onKidsOverrideChange(title, KidsOverrideDecision.Allowed, overAge) },
+                    )
+                }
+            }
         }
         LabelBlock(label = "Available on", value = title.providerLabels(providers).joinToString(" / "))
         RatingStack(ratings = title.ratings)
@@ -1593,6 +1817,32 @@ private val MediaKind.label: String
         MediaKind.Movie -> "Movie"
         MediaKind.Series -> "Series"
     }
+
+private fun ParentAction.parentPinMessage(maximumAge: Int): String = when (this) {
+    ParentAction.OpenParentalControls -> "Parent access is required to manage the Kids catalogue."
+    is ParentAction.SetKidsOverride -> when (decision) {
+        KidsOverrideDecision.Blocked -> "Hide $titleName from every Kids surface?"
+        KidsOverrideDecision.Allowed -> if (allowsOverAge) {
+            "Allow $titleName in Kids despite the $maximumAge+ age limit?"
+        } else {
+            "Manually allow $titleName in Kids?"
+        }
+        null -> "Restore age-rating rules for $titleName?"
+    }
+    else -> "Parent access is required for this change."
+}
+
+private fun KidsCatalogueOverride.toPlaceholderTitle(): Title = Title(
+    id = titleId,
+    name = titleName.ifBlank { "Unavailable title" },
+    year = null,
+    mediaKind = titleId.mediaKind,
+    runtimeMinutes = null,
+    synopsis = "This title is not in the current subscription catalogue.",
+    offers = emptyList(),
+    ratings = emptyList(),
+    launchTargets = emptyList(),
+)
 
 private fun Title.providerLabels(providers: List<Provider>): List<String> =
     offers.mapNotNull { offer -> providers.firstOrNull { it.id == offer.providerId }?.shortName }.distinct()

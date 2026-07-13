@@ -85,6 +85,19 @@ enum class FeedbackValue {
     Disliked,
 }
 
+enum class KidsOverrideDecision {
+    Allowed,
+    Blocked,
+}
+
+data class KidsCatalogueOverride(
+    val titleId: TitleId,
+    val decision: KidsOverrideDecision,
+    val allowsOverAge: Boolean = false,
+    val changedAtEpochMillis: Long,
+    val titleName: String = "",
+)
+
 data class FeedbackEntry(
     val titleId: TitleId,
     val value: FeedbackValue,

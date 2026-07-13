@@ -98,10 +98,10 @@ acceptance gates live in [the sidequest roadmap](sidequests.md).
 
 ### SQ2: Parent catalogue controls
 
-- [ ] Hide a movie or whole series from Kids mode
-- [ ] PIN-protected blocked and allowed title management
-- [ ] Persistent canonical-title overrides with block-first precedence
-- [ ] Immediate removal from every Kids surface
+- [x] Hide a movie or whole series from Kids mode
+- [x] PIN-protected blocked and allowed title management
+- [x] Persistent canonical-title overrides with block-first precedence
+- [x] Immediate removal from every Kids surface
 
 ### SQ3: Category browse and transparent sorting
 
