@@ -1,31 +1,73 @@
 # Release Preparation
 
-The Play Console account is ready to use once the local product loop is stable enough
-for screenshots and tester builds.
+Milestone 8 targets a Play internal-testing release that meets the Android TV Ready
+requirements. TV Optimized features are worthwhile follow-up work, but are not allowed
+to obscure the smaller submission contract.
 
-## Before creating the Play app
+## Readiness audit
 
-- Confirm the package name. `com.couchindex.app` becomes the permanent app identity
-  once published.
-- Create a release signing plan. New apps should use Play App Signing and keep the
-  upload key recoverable.
-- Build release artifacts as Android App Bundles (`.aab`), not debug APKs.
-- Prepare TV screenshots from the Google TV emulator.
-- Prepare privacy, data safety, store listing and app access answers.
+Audited on 2026-07-13 against the current Android and Play documentation.
+
+| Area | Current state | Release gate |
+| --- | --- | --- |
+| Package identity | `com.couchindex.app` | Confirm before the Play app is created; it becomes permanent after publication. |
+| SDK compatibility | `minSdk 28`, `targetSdk 37` | Ready. Current TV submissions require target API 34 or newer and common-device support requires minimum API 31 or lower. |
+| TV manifest | Leanback required, touchscreen optional, landscape launcher activity | Ready. Preserve the TV-only form-factor declarations. |
+| Launcher assets | Scalable icon; abstract 320x180 vector banner without the app name | Replace the banner with a raster 320x180 asset containing `CouchIndex`. |
+| Release artifact | Unsigned 7.2 MB AAB builds successfully | Configure a recoverable upload key and validate the signed AAB before upload. |
+| Native compatibility | `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64` are packaged | Retain 64-bit support and verify 16 KB page compatibility when native dependencies change. |
+| Personal data | Subscriptions, feedback, history and catalogue cache remain on device | Explicitly exclude all app data from cloud backup and device transfer. |
+| Network data | TMDb catalogue requests and IMDb dataset downloads only | Document declarations and publish a privacy policy before closed or production testing. |
+| Store media | Emulator smoke screenshots exist | Capture a final curated 16:9 TV screenshot set after the release UI is frozen. |
+| Device behavior | Google TV emulator validated | Verify launcher artwork and real provider handoffs on physical Google TV hardware. |
+
+## Signing contract
+
+Use Play App Signing. Google holds the app-signing key and the developer retains a
+separate upload key. Keep the keystore and passwords outside the repository, backed up
+in recoverable secure storage. The Gradle release configuration may read paths and
+credentials from ignored local properties, but must still permit an unsigned local
+bundle for deterministic CI validation.
+
+The TMDb API read token is application-level authentication and is compiled into the
+client artifact. It must remain read-only; no TMDb user token or other account secret
+may be embedded. Build logs, documentation and committed configuration must never
+contain the token.
+
+## Play declarations
+
+Before moving beyond internal testing:
+
+- Publish a privacy policy describing local personal state, TMDb requests, IMDb dataset
+  downloads, artwork loading and provider handoff.
+- Complete the Data safety form from the behavior of the final artifact and its SDKs.
+- Retain visible JustWatch attribution wherever live watch-provider availability appears.
+- Supply an Android TV banner and at least one accurate Android TV screenshot.
+- Re-check target API, testing-track and developer-account requirements immediately
+  before submission because these policies change independently of the codebase.
 
 ## First tracks
 
-- Use internal testing for fast personal/device validation.
+- Use internal testing for personal installation and physical-device validation.
 - Use closed testing when inviting external testers.
-- Re-check current Play Console requirements before production access. Personal
-  developer accounts may need a closed test with a minimum tester count and continuous
-  opt-in duration before production is available.
+- Treat production access as a separate gate after internal stability and any current
+  Play Console testing requirement are satisfied.
 
-## Useful references
+## Current references
 
-- Create and set up a Play Console app:
-  https://support.google.com/googleplay/android-developer/answer/9859152
+- Android TV app quality:
+  https://developer.android.com/docs/quality-guidelines/tv-app-quality
+- Target API level requirements:
+  https://support.google.com/googleplay/android-developer/answer/11926878
+- Android App Bundles:
+  https://support.google.com/googleplay/android-developer/answer/9844279
 - Play App Signing:
-  https://support.google.com/googleplay/android-developer/answer/9842756
-- Personal developer account testing requirements:
-  https://support.google.com/googleplay/android-developer/answer/14151465
+  https://developer.android.com/studio/publish/app-signing
+- Store preview assets:
+  https://support.google.com/googleplay/android-developer/answer/9866151
+- Data safety:
+  https://support.google.com/googleplay/android-developer/answer/10787469
+- TMDb application authentication:
+  https://developer.themoviedb.org/docs/authentication-application
+- TMDb watch-provider attribution:
+  https://developer.themoviedb.org/reference/movie-watch-providers

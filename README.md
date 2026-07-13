@@ -113,3 +113,4 @@ Milestone 6 adds private, persistent Like and Dislike feedback plus a local For 
 The post-V1 platform and integration investigations are documented without adding privileged permissions or unverified provider behavior.
 Milestone 7 completes the local-first startup path with atomic catalogue snapshots, background refresh, cached failure fallback,
 and visible cache age and staleness.
+Milestone 8 tracks the path from a locally complete V1 to a signed Android App Bundle on Play internal testing.
