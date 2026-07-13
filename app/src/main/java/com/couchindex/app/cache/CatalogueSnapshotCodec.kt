@@ -1,5 +1,7 @@
 package com.couchindex.app.cache
 
+import com.couchindex.core.ContentCertification
+import com.couchindex.core.Genre
 import com.couchindex.core.LaunchTarget
 import com.couchindex.core.MediaKind
 import com.couchindex.core.MonetizationType
@@ -19,6 +21,7 @@ object CatalogueSnapshotCodec {
             .put("region", snapshot.region)
             .put("savedAtEpochMillis", snapshot.savedAtEpochMillis)
             .put("providers", JSONArray().apply { snapshot.providers.forEach { put(it.toJson()) } })
+            .put("genres", JSONArray().apply { snapshot.genres.forEach { put(it.toJson()) } })
             .put("titles", JSONArray().apply { snapshot.titles.forEach { put(it.toJson()) } })
             .toString()
 
@@ -28,9 +31,10 @@ object CatalogueSnapshotCodec {
         val region = json.optString("region").takeIf { it.isNotBlank() } ?: return null
         val savedAt = json.optLong("savedAtEpochMillis").takeIf { it > 0 } ?: return null
         val providers = json.optJSONArray("providers").objects().mapNotNull { it.toProvider() }
+        val genres = json.optJSONArray("genres").objects().mapNotNull { it.toGenre() }
         val titles = json.optJSONArray("titles").objects().mapNotNull { it.toTitle() }
-        if (providers.isEmpty() || titles.isEmpty()) return null
-        CatalogueSnapshot(region, savedAt, providers, titles)
+        if (providers.isEmpty() || genres.isEmpty() || titles.isEmpty()) return null
+        CatalogueSnapshot(region, savedAt, providers, titles, genres)
     }.getOrNull()
 
     private fun Provider.toJson(): JSONObject =
@@ -55,12 +59,29 @@ object CatalogueSnapshotCodec {
         )
     }
 
+    private fun Genre.toJson(): JSONObject =
+        JSONObject()
+            .put("id", id)
+            .put("name", name)
+            .put("mediaKinds", JSONArray(mediaKinds.map { it.name }))
+
+    private fun JSONObject.toGenre(): Genre? {
+        val id = optionalInt("id")?.takeIf { it > 0 } ?: return null
+        val name = optionalString("name") ?: return null
+        val mediaKinds = optJSONArray("mediaKinds").strings()
+            .mapNotNull { value -> runCatching { MediaKind.valueOf(value) }.getOrNull() }
+            .toSet()
+        if (mediaKinds.isEmpty()) return null
+        return Genre(id, name, mediaKinds)
+    }
+
     private fun Title.toJson(): JSONObject =
         JSONObject()
             .put("tmdbId", id.tmdbId)
             .put("mediaKind", mediaKind.name)
             .put("name", name)
             .putNullable("year", year)
+            .putNullable("releaseDate", releaseDate)
             .putNullable("runtimeMinutes", runtimeMinutes)
             .put("synopsis", synopsis)
             .put("offers", JSONArray().apply { offers.forEach { put(it.toJson()) } })
@@ -71,6 +92,7 @@ object CatalogueSnapshotCodec {
             .put("externalIds", JSONObject(externalIds))
             .putNullable("posterUrl", posterUrl)
             .put("genreIds", JSONArray(genreIds.toList()))
+            .putNullable("certification", certification?.toJson())
 
     private fun JSONObject.toTitle(): Title? {
         val tmdbId = optInt("tmdbId").takeIf { it > 0 } ?: return null
@@ -80,6 +102,7 @@ object CatalogueSnapshotCodec {
             id = TitleId(tmdbId, mediaKind),
             name = name,
             year = optionalInt("year"),
+            releaseDate = optionalString("releaseDate"),
             mediaKind = mediaKind,
             runtimeMinutes = optionalInt("runtimeMinutes"),
             synopsis = optString("synopsis"),
@@ -91,7 +114,21 @@ object CatalogueSnapshotCodec {
             externalIds = optJSONObject("externalIds")?.stringMap().orEmpty(),
             posterUrl = optionalString("posterUrl"),
             genreIds = optJSONArray("genreIds").ints().toSet(),
+            certification = optJSONObject("certification")?.toCertification(),
         )
+    }
+
+    private fun ContentCertification.toJson(): JSONObject =
+        JSONObject()
+            .put("countryCode", countryCode)
+            .put("rating", rating)
+            .put("minimumAge", minimumAge)
+
+    private fun JSONObject.toCertification(): ContentCertification? {
+        val countryCode = optionalString("countryCode") ?: return null
+        val rating = optionalString("rating") ?: return null
+        val minimumAge = optionalInt("minimumAge")?.takeIf { it >= 0 } ?: return null
+        return ContentCertification(countryCode, rating, minimumAge)
     }
 
     private fun Offer.toJson(): JSONObject =
@@ -161,5 +198,8 @@ object CatalogueSnapshotCodec {
     private fun JSONArray?.ints(): List<Int> =
         if (this == null) emptyList() else (0 until length()).map { optInt(it) }.filter { it > 0 }
 
-    private const val VERSION = 1
+    private fun JSONArray?.strings(): List<String> =
+        if (this == null) emptyList() else (0 until length()).mapNotNull { optString(it).takeIf(String::isNotBlank) }
+
+    private const val VERSION = 3
 }

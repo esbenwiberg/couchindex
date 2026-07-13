@@ -1,5 +1,6 @@
 package com.couchindex.app.cache
 
+import com.couchindex.core.Genre
 import com.couchindex.core.Provider
 import com.couchindex.core.Title
 
@@ -8,6 +9,7 @@ data class CatalogueSnapshot(
     val savedAtEpochMillis: Long,
     val providers: List<Provider>,
     val titles: List<Title>,
+    val genres: List<Genre> = emptyList(),
 )
 
 enum class CacheFreshness {

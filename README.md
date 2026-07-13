@@ -114,3 +114,7 @@ The post-V1 platform and integration investigations are documented without addin
 Milestone 7 completes the local-first startup path with atomic catalogue snapshots, background refresh, cached failure fallback,
 and visible cache age and staleness.
 Milestone 8 tracks the path from a locally complete V1 to a signed Android App Bundle on Play internal testing.
+The post-V1 sidequests now add a fail-closed Kids mode with parental catalogue controls,
+local genre and media browsing with source-labelled sorting, and a reconciled Google TV
+preview channel. Physical-TV validation remains the final gate for launcher placement and
+provider handoffs.

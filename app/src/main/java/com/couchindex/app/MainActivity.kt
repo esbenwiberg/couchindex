@@ -3,6 +3,7 @@ package com.couchindex.app
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -74,16 +75,30 @@ import com.couchindex.app.launch.RecentLaunchStore
 import com.couchindex.app.launch.ResolvedProviderLaunch
 import com.couchindex.app.ratings.ImdbDatasetRatingAdapter
 import com.couchindex.app.settings.SubscriptionStore
+import com.couchindex.app.settings.KidsSettings
+import com.couchindex.app.settings.KidsSettingsStore
 import com.couchindex.app.state.FeedbackStore
+import com.couchindex.app.state.KidsCatalogueOverrideStore
 import com.couchindex.app.state.WatchedStore
 import com.couchindex.app.state.WatchlistStore
 import com.couchindex.app.tmdb.TmdbCatalogueRepository
 import com.couchindex.app.tmdb.TmdbDiscoverClient
+import com.couchindex.app.tmdb.TmdbGenreDirectory
 import com.couchindex.app.tmdb.TmdbProviderDirectory
+import com.couchindex.app.tv.CouchIndexDeepLinks
+import com.couchindex.app.tv.TvHomeChannelPublisher
+import com.couchindex.core.BrowseCatalogue
+import com.couchindex.core.BrowseCatalogueQuery
+import com.couchindex.core.BrowseMediaFilter
 import com.couchindex.core.BrowseRow
+import com.couchindex.core.BrowseSort
 import com.couchindex.core.BuildHomeRows
 import com.couchindex.core.FeedbackValue
+import com.couchindex.core.Genre
 import com.couchindex.core.LaunchTarget
+import com.couchindex.core.KidsEligibilityPolicy
+import com.couchindex.core.KidsCatalogueOverride
+import com.couchindex.core.KidsOverrideDecision
 import com.couchindex.core.MediaKind
 import com.couchindex.core.Provider
 import com.couchindex.core.Rating
@@ -92,15 +107,28 @@ import com.couchindex.core.SearchCatalogue
 import com.couchindex.core.Subscription
 import com.couchindex.core.Title
 import com.couchindex.core.TitleId
+import com.couchindex.core.ViewerProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
+    private val requestedTitleId = mutableStateOf<TitleId?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestedTitleId.value = CouchIndexDeepLinks.parseTitleId(intent?.dataString)
         setContent {
-            CouchIndexApp()
+            CouchIndexApp(
+                requestedTitleId = requestedTitleId.value,
+                onRequestedTitleHandled = { requestedTitleId.value = null },
+            )
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        requestedTitleId.value = CouchIndexDeepLinks.parseTitleId(intent.dataString)
     }
 }
 
@@ -109,6 +137,37 @@ private enum class Destination(val label: String) {
     Browse("Browse"),
     Search("Search"),
     Settings("Settings"),
+    ParentalControls("Parental controls"),
+}
+
+private sealed interface ParentAction {
+    data object EnterKids : ParentAction
+    data object ExitKids : ParentAction
+    data object ToggleStartInKids : ParentAction
+    data class SetMaximumAge(val age: Int) : ParentAction
+    data object OpenParentalControls : ParentAction
+    data class SetKidsOverride(
+        val titleId: TitleId,
+        val titleName: String,
+        val decision: KidsOverrideDecision?,
+        val allowsOverAge: Boolean = false,
+    ) : ParentAction
+}
+
+private sealed interface PinFlow {
+    val action: ParentAction
+    val error: String?
+
+    data class Setup(
+        override val action: ParentAction,
+        val firstPin: String? = null,
+        override val error: String? = null,
+    ) : PinFlow
+
+    data class Verify(
+        override val action: ParentAction,
+        override val error: String? = null,
+    ) : PinFlow
 }
 
 private data class CatalogueStatus(
@@ -129,11 +188,21 @@ private data class CatalogueStatus(
 }
 
 @Composable
-private fun CouchIndexApp() {
+private fun CouchIndexApp(
+    requestedTitleId: TitleId?,
+    onRequestedTitleHandled: () -> Unit,
+) {
     val rowBuilder = remember { BuildHomeRows() }
+    val kidsEligibilityPolicy = remember { KidsEligibilityPolicy() }
     val context = LocalContext.current
     val appConfig = remember { AppConfigLoader.load() }
+    val kidsSettingsStore = remember(context) { KidsSettingsStore(context) }
+    val kidsOverrideStore = remember(context) { KidsCatalogueOverrideStore(context) }
+    var kidsSettings by remember { mutableStateOf(kidsSettingsStore.load()) }
+    var viewerProfile by remember { mutableStateOf(kidsSettingsStore.initialProfile()) }
+    var pinFlow by remember { mutableStateOf<PinFlow?>(null) }
     val catalogueCacheStore = remember(context) { CatalogueCacheStore(context) }
+    val tvHomeChannelPublisher = remember(context) { TvHomeChannelPublisher(context) }
     var cachedSnapshot by remember(appConfig.hasTmdbReadAccessToken) {
         mutableStateOf(
             catalogueCacheStore.load()
@@ -141,20 +210,27 @@ private fun CouchIndexApp() {
         )
     }
     val initialProviders = cachedSnapshot?.providers ?: SampleCatalogue.providers
+    val initialGenres = cachedSnapshot?.genres?.takeIf { it.isNotEmpty() } ?: SampleCatalogue.genres
     val providerLauncher = remember(context) { AndroidProviderLauncher(context) }
     val imdbRatingAdapter = remember(context) { ImdbDatasetRatingAdapter(context) }
-    val recentLaunchStore = remember(context) { RecentLaunchStore(context) }
-    val feedbackStore = remember(context) { FeedbackStore(context) }
+    val recentLaunchStore = remember(context, viewerProfile) { RecentLaunchStore(context, viewerProfile) }
+    val kidsRecentLaunchStore = remember(context) { RecentLaunchStore(context, ViewerProfile.Kids) }
+    val feedbackStore = remember(context, viewerProfile) { FeedbackStore(context, viewerProfile) }
     val subscriptionStore = remember(context) { SubscriptionStore(context) }
-    val watchedStore = remember(context) { WatchedStore(context) }
-    val watchlistStore = remember(context) { WatchlistStore(context) }
+    val watchedStore = remember(context, viewerProfile) { WatchedStore(context, viewerProfile) }
+    val watchlistStore = remember(context, viewerProfile) { WatchlistStore(context, viewerProfile) }
     val tmdbClient = remember(appConfig.tmdbReadAccessToken) { TmdbDiscoverClient(appConfig.tmdbReadAccessToken) }
     val providerDirectory = remember(tmdbClient) {
         TmdbProviderDirectory(source = tmdbClient, fallbackProviders = SampleCatalogue.providers)
     }
+    val genreDirectory = remember(tmdbClient) { TmdbGenreDirectory(tmdbClient) }
     var providers by remember { mutableStateOf(initialProviders) }
+    var genres by remember { mutableStateOf(initialGenres) }
     var providerDirectoryReady by remember {
         mutableStateOf(!appConfig.hasTmdbReadAccessToken || cachedSnapshot != null)
+    }
+    var genreDirectoryReady by remember {
+        mutableStateOf(!appConfig.hasTmdbReadAccessToken || cachedSnapshot?.genres?.isNotEmpty() == true)
     }
     val subscriptions = remember {
         val sampleDefaults = SampleCatalogue.subscriptions.associate { it.providerId to it.enabled }
@@ -163,18 +239,27 @@ private fun CouchIndexApp() {
         }
         mutableStateListOf(*subscriptionStore.load(defaults).toTypedArray())
     }
-    val recentLaunches = remember {
-        val initial = if (appConfig.hasTmdbReadAccessToken) recentLaunchStore.load() else SampleCatalogue.recentLaunches
+    val recentLaunches = remember(viewerProfile) {
+        val initial = if (appConfig.hasTmdbReadAccessToken) {
+            recentLaunchStore.load()
+        } else if (viewerProfile == ViewerProfile.Adult) {
+            SampleCatalogue.recentLaunches
+        } else {
+            emptyList()
+        }
         mutableStateListOf(*initial.toTypedArray())
     }
-    val watchlistEntries = remember {
+    val watchlistEntries = remember(viewerProfile) {
         mutableStateListOf(*watchlistStore.load().toTypedArray())
     }
-    val watchedEntries = remember {
+    val watchedEntries = remember(viewerProfile) {
         mutableStateListOf(*watchedStore.load().toTypedArray())
     }
-    val feedbackEntries = remember {
+    val feedbackEntries = remember(viewerProfile) {
         mutableStateListOf(*feedbackStore.load().toTypedArray())
+    }
+    val kidsOverrides = remember {
+        mutableStateListOf(*kidsOverrideStore.load().toTypedArray())
     }
     var catalogue by remember { mutableStateOf(cachedSnapshot?.titles ?: SampleCatalogue.titles) }
     var catalogueStatus by remember {
@@ -187,10 +272,19 @@ private fun CouchIndexApp() {
                 ),
         )
     }
-    val rows by remember {
+    val visibleCatalogue by remember(viewerProfile, kidsSettings.maximumAge) {
+        derivedStateOf {
+            if (viewerProfile == ViewerProfile.Kids) {
+                kidsEligibilityPolicy.filter(catalogue, kidsSettings.maximumAge, kidsOverrides)
+            } else {
+                catalogue
+            }
+        }
+    }
+    val rows by remember(viewerProfile, kidsSettings.maximumAge) {
         derivedStateOf {
             rowBuilder.invoke(
-                catalogue = catalogue,
+                catalogue = visibleCatalogue,
                 subscriptions = subscriptions,
                 recentLaunches = recentLaunches,
                 watchlistEntries = watchlistEntries,
@@ -204,10 +298,93 @@ private fun CouchIndexApp() {
     val feedbackByTitleId = feedbackEntries.associate { it.titleId to it.value }
     val enabledProviderIds = subscriptions.filter { it.enabled }.map { it.providerId }.toSet()
     val providerSignature = providers.map { it.id to it.tmdbProviderId }
+    val genreSignature = genres.map { genre -> genre.id to genre.name }
 
     var destination by remember { mutableStateOf(Destination.Home) }
     var selectedTitle by remember { mutableStateOf<Title?>(null) }
     var searchQuery by remember { mutableStateOf("") }
+    var parentalSearchQuery by remember { mutableStateOf("") }
+    var browseMediaFilter by remember { mutableStateOf(BrowseMediaFilter.All) }
+    var browseGenreId by remember { mutableStateOf<Int?>(null) }
+    var browseSort by remember { mutableStateOf(BrowseSort.Title) }
+
+    LaunchedEffect(
+        cachedSnapshot?.savedAtEpochMillis,
+        viewerProfile,
+        kidsSettings.maximumAge,
+        kidsOverrides.toList(),
+    ) {
+        val snapshot = cachedSnapshot ?: return@LaunchedEffect
+        val channelTitles = if (viewerProfile == ViewerProfile.Kids) {
+            kidsEligibilityPolicy.filter(snapshot.titles, kidsSettings.maximumAge, kidsOverrides)
+        } else {
+            snapshot.titles
+        }
+        withContext(Dispatchers.IO) {
+            runCatching { tvHomeChannelPublisher.refresh(snapshot, channelTitles) }
+                .onFailure { error -> Log.w("CouchIndexTv", "TV home channel refresh failed", error) }
+        }
+    }
+
+    fun completeParentAction(action: ParentAction) {
+        when (action) {
+            ParentAction.EnterKids -> {
+                viewerProfile = ViewerProfile.Kids
+                destination = Destination.Home
+                selectedTitle = null
+                searchQuery = ""
+            }
+
+            ParentAction.ExitKids -> {
+                viewerProfile = ViewerProfile.Adult
+                destination = Destination.Home
+                selectedTitle = null
+                searchQuery = ""
+            }
+
+            ParentAction.ToggleStartInKids -> {
+                kidsSettingsStore.setStartInKidsMode(!kidsSettings.startInKidsMode)
+                kidsSettings = kidsSettingsStore.load()
+            }
+
+            is ParentAction.SetMaximumAge -> {
+                kidsSettingsStore.setMaximumAge(action.age)
+                kidsSettings = kidsSettingsStore.load()
+            }
+
+            ParentAction.OpenParentalControls -> {
+                destination = Destination.ParentalControls
+                selectedTitle = null
+                parentalSearchQuery = ""
+            }
+
+            is ParentAction.SetKidsOverride -> {
+                kidsOverrides.clear()
+                kidsOverrides.addAll(
+                    kidsOverrideStore.set(
+                        titleId = action.titleId,
+                        titleName = action.titleName,
+                        decision = action.decision,
+                        allowsOverAge = action.allowsOverAge,
+                    ),
+                )
+                if (action.decision == KidsOverrideDecision.Blocked) {
+                    kidsRecentLaunchStore.remove(action.titleId)
+                }
+            }
+        }
+    }
+
+    fun requestParentAction(action: ParentAction, requiresPin: Boolean) {
+        pinFlow = when {
+            !kidsSettingsStore.hasPin() -> PinFlow.Setup(action)
+            requiresPin -> PinFlow.Verify(action)
+            else -> {
+                completeParentAction(action)
+                null
+            }
+        }
+    }
 
     LaunchedEffect(appConfig.hasTmdbReadAccessToken) {
         if (!appConfig.hasTmdbReadAccessToken) {
@@ -243,11 +420,31 @@ private fun CouchIndexApp() {
         providerDirectoryReady = true
     }
 
+    LaunchedEffect(appConfig.hasTmdbReadAccessToken) {
+        if (!appConfig.hasTmdbReadAccessToken) {
+            genres = SampleCatalogue.genres
+            genreDirectoryReady = true
+            return@LaunchedEffect
+        }
+
+        genreDirectoryReady = false
+        runCatching { genreDirectory.fetchGenres() }
+            .onSuccess { discoveredGenres ->
+                if (discoveredGenres.isNotEmpty()) genres = discoveredGenres
+            }
+            .onFailure {
+                genres = cachedSnapshot?.genres?.takeIf { cached -> cached.isNotEmpty() } ?: SampleCatalogue.genres
+            }
+        genreDirectoryReady = true
+    }
+
     LaunchedEffect(
         appConfig.hasTmdbReadAccessToken,
         providerDirectoryReady,
+        genreDirectoryReady,
         enabledProviderIds,
         providerSignature,
+        genreSignature,
     ) {
         if (!appConfig.hasTmdbReadAccessToken) {
             catalogue = SampleCatalogue.titles
@@ -255,7 +452,7 @@ private fun CouchIndexApp() {
             return@LaunchedEffect
         }
 
-        if (!providerDirectoryReady) return@LaunchedEffect
+        if (!providerDirectoryReady || !genreDirectoryReady) return@LaunchedEffect
 
         if (enabledProviderIds.isEmpty()) {
             catalogue = emptyList()
@@ -284,6 +481,7 @@ private fun CouchIndexApp() {
                 savedAtEpochMillis = System.currentTimeMillis(),
                 providers = providers,
                 titles = discoveredTitles,
+                genres = genres,
             )
             cachedSnapshot = snapshot
             withContext(Dispatchers.IO) {
@@ -302,6 +500,7 @@ private fun CouchIndexApp() {
             } else {
                 catalogue = cached.titles
                 providers = cached.providers
+                genres = cached.genres
                 catalogueStatus = cached.toCatalogueStatus(
                     nowEpochMillis = System.currentTimeMillis(),
                     prefix = "Refresh failed",
@@ -313,6 +512,27 @@ private fun CouchIndexApp() {
     LaunchedEffect(rows) {
         if (selectedTitle == null || rows.none { row -> row.titles.any { it.id == selectedTitle?.id } }) {
             selectedTitle = rows.firstOrNull { it.titles.isNotEmpty() }?.titles?.firstOrNull()
+        }
+    }
+
+    LaunchedEffect(
+        requestedTitleId,
+        visibleCatalogue,
+        catalogue,
+        providerDirectoryReady,
+        genreDirectoryReady,
+    ) {
+        val titleId = requestedTitleId ?: return@LaunchedEffect
+        val requestedTitle = visibleCatalogue.firstOrNull { it.id == titleId }
+        when {
+            requestedTitle != null -> {
+                destination = Destination.Home
+                selectedTitle = requestedTitle
+                onRequestedTitleHandled()
+            }
+
+            catalogue.any { it.id == titleId } -> onRequestedTitleHandled()
+            providerDirectoryReady && genreDirectoryReady -> onRequestedTitleHandled()
         }
     }
 
@@ -333,23 +553,60 @@ private fun CouchIndexApp() {
             DestinationRail(
                 selected = destination,
                 footerLabel = catalogueStatus.railLabel,
+                viewerProfile = viewerProfile,
                 onSelect = { destination = it },
+                onModeAction = {
+                    val action = if (viewerProfile == ViewerProfile.Adult) {
+                        ParentAction.EnterKids
+                    } else {
+                        ParentAction.ExitKids
+                    }
+                    requestParentAction(action, requiresPin = viewerProfile == ViewerProfile.Kids)
+                },
             )
             MainSurface(
                 destination = destination,
                 rows = rows,
                 appConfig = appConfig,
                 catalogueStatus = catalogueStatus,
+                viewerProfile = viewerProfile,
+                kidsSettings = kidsSettings,
+                catalogue = catalogue,
+                kidsOverrides = kidsOverrides,
+                genres = genres,
                 providers = providers,
                 subscriptions = subscriptions,
                 selectedTitle = selectedTitle,
                 searchQuery = searchQuery,
+                parentalSearchQuery = parentalSearchQuery,
+                browseMediaFilter = browseMediaFilter,
+                browseGenreId = browseGenreId,
+                browseSort = browseSort,
                 watchlistedTitleIds = watchlistedTitleIds,
                 watchedTitleIds = watchedTitleIds,
                 recentTitleIds = recentTitleIds,
                 selectedFeedback = selectedTitle?.let { feedbackByTitleId[it.id] },
                 onTitleSelected = { selectedTitle = it },
                 onSearchQueryChange = { searchQuery = it },
+                onParentalSearchQueryChange = { parentalSearchQuery = it },
+                onBrowseMediaFilterChange = { filter ->
+                    browseMediaFilter = filter
+                    val selectedGenre = genres.firstOrNull { it.id == browseGenreId }
+                    val selectedKind = when (filter) {
+                        BrowseMediaFilter.All -> null
+                        BrowseMediaFilter.Movies -> MediaKind.Movie
+                        BrowseMediaFilter.Series -> MediaKind.Series
+                    }
+                    if (
+                        browseGenreId != null &&
+                        selectedKind != null &&
+                        selectedGenre?.mediaKinds?.contains(selectedKind) != true
+                    ) {
+                        browseGenreId = null
+                    }
+                },
+                onBrowseGenreChange = { browseGenreId = it },
+                onBrowseSortChange = { browseSort = it },
                 resolveLaunchTarget = providerLauncher::resolve,
                 onLaunchTargetSelected = { title, target ->
                     when (providerLauncher.launch(target)) {
@@ -375,6 +632,15 @@ private fun CouchIndexApp() {
                         subscriptions[index] = updated
                         subscriptionStore.setEnabled(updated.providerId, updated.enabled)
                     }
+                },
+                onStartInKidsModeToggle = {
+                    requestParentAction(ParentAction.ToggleStartInKids, requiresPin = true)
+                },
+                onMaximumAgeSelected = { age ->
+                    requestParentAction(ParentAction.SetMaximumAge(age), requiresPin = true)
+                },
+                onOpenParentalControls = {
+                    requestParentAction(ParentAction.OpenParentalControls, requiresPin = true)
                 },
                 onPrivacyPolicySelected = {
                     runCatching {
@@ -406,6 +672,56 @@ private fun CouchIndexApp() {
                     feedbackEntries.clear()
                     feedbackEntries.addAll(feedbackStore.set(title.id, updatedValue))
                 },
+                onKidsOverrideChange = { title, decision, allowsOverAge ->
+                    requestParentAction(
+                        ParentAction.SetKidsOverride(
+                            titleId = title.id,
+                            titleName = title.name,
+                            decision = decision,
+                            allowsOverAge = allowsOverAge,
+                        ),
+                        requiresPin = destination != Destination.ParentalControls,
+                    )
+                },
+            )
+        }
+        pinFlow?.let { flow ->
+            ParentPinDialog(
+                title = when (flow) {
+                    is PinFlow.Setup -> if (flow.firstPin == null) "Create parent PIN" else "Confirm parent PIN"
+                    is PinFlow.Verify -> "Enter parent PIN"
+                },
+                message = when (flow) {
+                    is PinFlow.Setup -> "Use four digits. Clearing app data resets a forgotten PIN."
+                    is PinFlow.Verify -> flow.action.parentPinMessage(kidsSettings.maximumAge)
+                },
+                error = flow.error,
+                onCancel = { pinFlow = null },
+                onSubmit = { pin ->
+                    when (flow) {
+                        is PinFlow.Setup -> {
+                            val firstPin = flow.firstPin
+                            if (firstPin == null) {
+                                pinFlow = flow.copy(firstPin = pin, error = null)
+                            } else if (firstPin == pin) {
+                                kidsSettingsStore.setPin(pin)
+                                completeParentAction(flow.action)
+                                pinFlow = null
+                            } else {
+                                pinFlow = PinFlow.Setup(flow.action, error = "PINs did not match")
+                            }
+                        }
+
+                        is PinFlow.Verify -> {
+                            if (kidsSettingsStore.verifyPin(pin)) {
+                                completeParentAction(flow.action)
+                                pinFlow = null
+                            } else {
+                                pinFlow = flow.copy(error = "Incorrect PIN")
+                            }
+                        }
+                    }
+                },
             )
         }
     }
@@ -429,7 +745,9 @@ private const val DEFAULT_REGION = "DK"
 private fun DestinationRail(
     selected: Destination,
     footerLabel: String,
+    viewerProfile: ViewerProfile,
     onSelect: (Destination) -> Unit,
+    onModeAction: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -440,7 +758,7 @@ private fun DestinationRail(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         BasicText(
-            text = "CouchIndex",
+            text = if (viewerProfile == ViewerProfile.Kids) "CouchIndex Kids" else "CouchIndex",
             style = TextStyle(
                 color = Color(0xFFF4F1E8),
                 fontSize = 23.sp,
@@ -448,17 +766,31 @@ private fun DestinationRail(
             ),
         )
         BasicText(
-            text = "personal TV index",
-            style = TextStyle(color = Color(0xFF8FA0A5), fontSize = 12.sp),
+            text = if (viewerProfile == ViewerProfile.Kids) "family catalogue" else "personal TV index",
+            style = TextStyle(
+                color = if (viewerProfile == ViewerProfile.Kids) Color(0xFF8BC7B5) else Color(0xFF8FA0A5),
+                fontSize = 12.sp,
+            ),
         )
         Spacer(modifier = Modifier.height(18.dp))
-        Destination.entries.forEach { destination ->
+        Destination.entries
+            .filter { destination ->
+                destination != Destination.ParentalControls &&
+                    (viewerProfile == ViewerProfile.Adult || destination != Destination.Settings)
+            }
+            .forEach { destination ->
             FocusButton(
                 label = destination.label,
                 selected = selected == destination,
                 onClick = { onSelect(destination) },
             )
         }
+        Spacer(modifier = Modifier.height(10.dp))
+        FocusButton(
+            label = if (viewerProfile == ViewerProfile.Kids) "Adult mode" else "Kids mode",
+            selected = viewerProfile == ViewerProfile.Kids,
+            onClick = onModeAction,
+        )
         Spacer(modifier = Modifier.weight(1f))
         BasicText(
             text = footerLabel,
@@ -473,24 +805,41 @@ private fun MainSurface(
     rows: List<BrowseRow>,
     appConfig: AppConfig,
     catalogueStatus: CatalogueStatus,
+    viewerProfile: ViewerProfile,
+    kidsSettings: KidsSettings,
+    catalogue: List<Title>,
+    kidsOverrides: List<KidsCatalogueOverride>,
+    genres: List<Genre>,
     providers: List<Provider>,
     subscriptions: List<Subscription>,
     selectedTitle: Title?,
     searchQuery: String,
+    parentalSearchQuery: String,
+    browseMediaFilter: BrowseMediaFilter,
+    browseGenreId: Int?,
+    browseSort: BrowseSort,
     watchlistedTitleIds: Set<TitleId>,
     watchedTitleIds: Set<TitleId>,
     recentTitleIds: Set<TitleId>,
     selectedFeedback: FeedbackValue?,
     onTitleSelected: (Title) -> Unit,
     onSearchQueryChange: (String) -> Unit,
+    onParentalSearchQueryChange: (String) -> Unit,
+    onBrowseMediaFilterChange: (BrowseMediaFilter) -> Unit,
+    onBrowseGenreChange: (Int?) -> Unit,
+    onBrowseSortChange: (BrowseSort) -> Unit,
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onSubscriptionToggle: (String) -> Unit,
+    onStartInKidsModeToggle: () -> Unit,
+    onMaximumAgeSelected: (Int) -> Unit,
+    onOpenParentalControls: () -> Unit,
     onPrivacyPolicySelected: () -> Unit,
     onWatchlistToggle: (Title) -> Unit,
     onWatchedToggle: (Title) -> Unit,
     onContinueWatchingRemove: (Title) -> Unit,
     onFeedbackChange: (Title, FeedbackValue) -> Unit,
+    onKidsOverrideChange: (Title, KidsOverrideDecision?, Boolean) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -499,7 +848,12 @@ private fun MainSurface(
         horizontalArrangement = Arrangement.spacedBy(30.dp),
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            ScreenHeader(destination = destination, subscriptions = subscriptions, providers = providers)
+            ScreenHeader(
+                destination = destination,
+                subscriptions = subscriptions,
+                providers = providers,
+                viewerProfile = viewerProfile,
+            )
             Spacer(modifier = Modifier.height(22.dp))
             when (destination) {
                 Destination.Home -> HomeScreen(
@@ -510,7 +864,14 @@ private fun MainSurface(
 
                 Destination.Browse -> BrowseScreen(
                     rows = rows,
+                    genres = genres,
+                    mediaFilter = browseMediaFilter,
+                    genreId = browseGenreId,
+                    sort = browseSort,
                     providers = providers,
+                    onMediaFilterChange = onBrowseMediaFilterChange,
+                    onGenreChange = onBrowseGenreChange,
+                    onSortChange = onBrowseSortChange,
                     onTitleSelected = onTitleSelected,
                 )
 
@@ -527,8 +888,21 @@ private fun MainSurface(
                     catalogueStatus = catalogueStatus,
                     providers = providers,
                     subscriptions = subscriptions,
+                    kidsSettings = kidsSettings,
                     onSubscriptionToggle = onSubscriptionToggle,
+                    onStartInKidsModeToggle = onStartInKidsModeToggle,
+                    onMaximumAgeSelected = onMaximumAgeSelected,
+                    onOpenParentalControls = onOpenParentalControls,
                     onPrivacyPolicySelected = onPrivacyPolicySelected,
+                )
+
+                Destination.ParentalControls -> ParentalControlsScreen(
+                    catalogue = catalogue,
+                    query = parentalSearchQuery,
+                    overrides = kidsOverrides,
+                    providers = providers,
+                    onQueryChange = onParentalSearchQueryChange,
+                    onTitleSelected = onTitleSelected,
                 )
             }
         }
@@ -539,12 +913,16 @@ private fun MainSurface(
             isWatched = selectedTitle?.id in watchedTitleIds,
             isInContinueWatching = selectedTitle?.id in recentTitleIds,
             feedback = selectedFeedback,
+            viewerProfile = viewerProfile,
+            kidsMaximumAge = kidsSettings.maximumAge,
+            kidsOverride = selectedTitle?.let { title -> kidsOverrides.firstOrNull { it.titleId == title.id } },
             resolveLaunchTarget = resolveLaunchTarget,
             onLaunchTargetSelected = onLaunchTargetSelected,
             onWatchlistToggle = onWatchlistToggle,
             onWatchedToggle = onWatchedToggle,
             onContinueWatchingRemove = onContinueWatchingRemove,
             onFeedbackChange = onFeedbackChange,
+            onKidsOverrideChange = onKidsOverrideChange,
         )
     }
 }
@@ -596,6 +974,7 @@ private fun SearchScreen(
 private fun SearchInput(
     query: String,
     onQueryChange: (String) -> Unit,
+    placeholder: String = "Search titles",
 ) {
     var focused by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
@@ -633,7 +1012,7 @@ private fun SearchInput(
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
                 if (query.isEmpty()) {
                     BasicText(
-                        text = "Search titles",
+                        text = placeholder,
                         style = TextStyle(color = Color(0xFF8FA0A5), fontSize = 18.sp),
                     )
                 }
@@ -648,6 +1027,7 @@ private fun ScreenHeader(
     destination: Destination,
     subscriptions: List<Subscription>,
     providers: List<Provider>,
+    viewerProfile: ViewerProfile,
 ) {
     val enabledProviders = subscriptions
         .filter { it.enabled }
@@ -669,7 +1049,11 @@ private fun ScreenHeader(
                 ),
             )
             BasicText(
-                text = "Browse subscribed services first. Ratings stay separate.",
+                text = if (viewerProfile == ViewerProfile.Kids) {
+                    "Only parent-approved age ratings. Your activity stays separate."
+                } else {
+                    "Browse subscribed services first. Ratings stay separate."
+                },
                 style = TextStyle(color = Color(0xFFA8B3B7), fontSize = 15.sp),
             )
         }
@@ -706,24 +1090,100 @@ private fun HomeScreen(
 @Composable
 private fun BrowseScreen(
     rows: List<BrowseRow>,
+    genres: List<Genre>,
+    mediaFilter: BrowseMediaFilter,
+    genreId: Int?,
+    sort: BrowseSort,
     providers: List<Provider>,
+    onMediaFilterChange: (BrowseMediaFilter) -> Unit,
+    onGenreChange: (Int?) -> Unit,
+    onSortChange: (BrowseSort) -> Unit,
     onTitleSelected: (Title) -> Unit,
 ) {
-    val titles = rows
+    val browseCatalogue = remember { BrowseCatalogue() }
+    val sourceTitles = rows
         .flatMap { it.titles }
         .distinctBy { it.id }
-        .sortedWith(compareBy<Title> { it.mediaKind.name }.thenBy { it.name })
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        items(titles, key = { "${it.id.mediaKind}-${it.id.tmdbId}" }) { title ->
-            BrowseListItem(
-                title = title,
-                providers = providers,
-                onTitleSelected = onTitleSelected,
+    val titles by remember(sourceTitles, mediaFilter, genreId, sort) {
+        derivedStateOf {
+            browseCatalogue.invoke(
+                sourceTitles,
+                BrowseCatalogueQuery(mediaFilter = mediaFilter, genreId = genreId, sort = sort),
             )
+        }
+    }
+    val selectedKind = when (mediaFilter) {
+        BrowseMediaFilter.All -> null
+        BrowseMediaFilter.Movies -> MediaKind.Movie
+        BrowseMediaFilter.Series -> MediaKind.Series
+    }
+    val availableGenres = genres.filter { genre ->
+        (selectedKind == null || selectedKind in genre.mediaKinds) && sourceTitles.any { genre.id in it.genreIds }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(BrowseMediaFilter.entries, key = { it.name }) { filter ->
+                FocusButton(
+                    label = filter.label,
+                    selected = filter == mediaFilter,
+                    modifier = Modifier.width(100.dp),
+                    onClick = { onMediaFilterChange(filter) },
+                )
+            }
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                FocusButton(
+                    label = "All genres",
+                    selected = genreId == null,
+                    modifier = Modifier.width(160.dp),
+                    onClick = { onGenreChange(null) },
+                )
+            }
+            items(availableGenres, key = { it.id }) { genre ->
+                FocusButton(
+                    label = genre.name,
+                    selected = genre.id == genreId,
+                    modifier = Modifier.width(180.dp),
+                    onClick = { onGenreChange(genre.id) },
+                )
+            }
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(BrowseSort.entries, key = { it.name }) { option ->
+                FocusButton(
+                    label = option.label,
+                    selected = option == sort,
+                    modifier = Modifier.width(110.dp),
+                    onClick = { onSortChange(option) },
+                )
+            }
+        }
+        BasicText(
+            text = if (titles.size == 1) "1 title" else "${titles.size} titles",
+            modifier = Modifier.height(20.dp),
+            style = TextStyle(color = Color(0xFF8FA0A5), fontSize = 13.sp),
+        )
+        if (titles.isEmpty()) {
+            EmptyRow(label = "No titles in this category")
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(titles, key = { "${it.id.mediaKind}-${it.id.tmdbId}" }) { title ->
+                    BrowseListItem(
+                        title = title,
+                        providers = providers,
+                        ratingSource = sort.ratingSource,
+                        onTitleSelected = onTitleSelected,
+                    )
+                }
+            }
         }
     }
 }
@@ -734,13 +1194,48 @@ private fun SettingsScreen(
     catalogueStatus: CatalogueStatus,
     providers: List<Provider>,
     subscriptions: List<Subscription>,
+    kidsSettings: KidsSettings,
     onSubscriptionToggle: (String) -> Unit,
+    onStartInKidsModeToggle: () -> Unit,
+    onMaximumAgeSelected: (Int) -> Unit,
+    onOpenParentalControls: () -> Unit,
     onPrivacyPolicySelected: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        item {
+            BasicText(
+                text = "Kids mode",
+                style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 22.sp, fontWeight = FontWeight.SemiBold),
+            )
+        }
+        item {
+            SettingToggle(
+                name = "Start in Kids mode",
+                detail = "Open the age-filtered profile on cold launch",
+                enabled = kidsSettings.startInKidsMode,
+                onClick = onStartInKidsModeToggle,
+            )
+        }
+        item {
+            val currentIndex = KidsSettings.SUPPORTED_AGES.indexOf(kidsSettings.maximumAge).coerceAtLeast(0)
+            val nextAge = KidsSettings.SUPPORTED_AGES[(currentIndex + 1) % KidsSettings.SUPPORTED_AGES.size]
+            FocusButton(
+                label = "Maximum age: ${kidsSettings.maximumAge}+",
+                selected = false,
+                onClick = { onMaximumAgeSelected(nextAge) },
+            )
+        }
+        item {
+            FocusButton(
+                label = "Manage Kids catalogue",
+                selected = false,
+                onClick = onOpenParentalControls,
+            )
+        }
+        item { Spacer(modifier = Modifier.height(12.dp)) }
         item {
             BasicText(
                 text = "About",
@@ -783,6 +1278,100 @@ private fun SettingsScreen(
                 status = catalogueStatus,
             )
         }
+    }
+}
+
+@Composable
+private fun ParentalControlsScreen(
+    catalogue: List<Title>,
+    query: String,
+    overrides: List<KidsCatalogueOverride>,
+    providers: List<Provider>,
+    onQueryChange: (String) -> Unit,
+    onTitleSelected: (Title) -> Unit,
+) {
+    val searchCatalogue = remember { SearchCatalogue() }
+    val catalogueById = catalogue.associateBy { it.id }
+    val overriddenTitles = overrides.map { override ->
+        catalogueById[override.titleId] ?: override.toPlaceholderTitle()
+    }
+    val titles = if (query.isBlank()) {
+        overriddenTitles
+    } else {
+        searchCatalogue.invoke(catalogue, query)
+    }
+    val overrideByTitleId = overrides.associateBy { it.titleId }
+    val blockedCount = overrides.count { it.decision == KidsOverrideDecision.Blocked }
+    val allowedCount = overrides.count { it.decision == KidsOverrideDecision.Allowed }
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        SearchInput(
+            query = query,
+            onQueryChange = onQueryChange,
+            placeholder = "Find a title to allow or block",
+        )
+        BasicText(
+            text = if (query.isBlank()) {
+                "$blockedCount hidden / $allowedCount manually allowed"
+            } else {
+                "${titles.size} matching titles"
+            },
+            modifier = Modifier.height(20.dp),
+            style = TextStyle(color = Color(0xFF8FA0A5), fontSize = 13.sp),
+        )
+        if (titles.isEmpty()) {
+            EmptyRow(label = if (query.isBlank()) "No Kids catalogue overrides" else "No matching titles")
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(titles, key = { "parent-${it.id.mediaKind}-${it.id.tmdbId}" }) { title ->
+                    ParentalControlListItem(
+                        title = title,
+                        providers = providers,
+                        override = overrideByTitleId[title.id],
+                        onTitleSelected = onTitleSelected,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParentalControlListItem(
+    title: Title,
+    providers: List<Provider>,
+    override: KidsCatalogueOverride?,
+    onTitleSelected: (Title) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        BrowseListItem(title = title, providers = providers, onTitleSelected = onTitleSelected)
+        BasicText(
+            text = when (override?.decision) {
+                KidsOverrideDecision.Blocked -> "Hidden from Kids"
+                KidsOverrideDecision.Allowed -> if (override.allowsOverAge) {
+                    "Allowed with age exception"
+                } else {
+                    "Manually allowed"
+                }
+                null -> "Uses age-rating rule"
+            },
+            modifier = Modifier.padding(start = 16.dp),
+            style = TextStyle(
+                color = if (override?.decision == KidsOverrideDecision.Blocked) {
+                    Color(0xFFE18B78)
+                } else {
+                    Color(0xFF8BC7B5)
+                },
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
+        )
     }
 }
 
@@ -903,6 +1492,7 @@ private fun TitleCard(
 private fun BrowseListItem(
     title: Title,
     providers: List<Provider>,
+    ratingSource: String? = null,
     onTitleSelected: (Title) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -951,8 +1541,13 @@ private fun BrowseListItem(
                 style = TextStyle(color = Color(0xFFA8B3B7), fontSize = 13.sp),
             )
         }
+        val displayedRating = ratingSource?.let { source ->
+            title.ratings.firstOrNull { it.source.equals(source, ignoreCase = true) }
+        } ?: title.ratings.firstOrNull()
         BasicText(
-            text = title.ratings.firstOrNull()?.display() ?: "",
+            text = displayedRating?.let { rating ->
+                if (ratingSource == null) rating.display() else "${rating.source} ${rating.display()}"
+            }.orEmpty(),
             style = TextStyle(color = Color(0xFFE8C468), fontSize = 16.sp, fontWeight = FontWeight.Bold),
         )
     }
@@ -966,12 +1561,16 @@ private fun DetailsPanel(
     isWatched: Boolean,
     isInContinueWatching: Boolean,
     feedback: FeedbackValue?,
+    viewerProfile: ViewerProfile,
+    kidsMaximumAge: Int,
+    kidsOverride: KidsCatalogueOverride?,
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onWatchlistToggle: (Title) -> Unit,
     onWatchedToggle: (Title) -> Unit,
     onContinueWatchingRemove: (Title) -> Unit,
     onFeedbackChange: (Title, FeedbackValue) -> Unit,
+    onKidsOverrideChange: (Title, KidsOverrideDecision?, Boolean) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -1076,6 +1675,44 @@ private fun DetailsPanel(
                 onClick = { onContinueWatchingRemove(title) },
             )
         }
+        if (viewerProfile == ViewerProfile.Adult) {
+            val certificationAge = title.certification?.minimumAge
+            val baseEligible = certificationAge != null && certificationAge <= kidsMaximumAge
+            val overrideLabel = when (kidsOverride?.decision) {
+                KidsOverrideDecision.Blocked -> "Hidden from Kids"
+                KidsOverrideDecision.Allowed -> if (kidsOverride.allowsOverAge) {
+                    "Allowed in Kids with age exception"
+                } else {
+                    "Manually allowed in Kids"
+                }
+                null -> if (baseEligible) "Allowed by age rating" else "Hidden by age-rating rule"
+            }
+            LabelBlock(label = "Kids catalogue", value = overrideLabel)
+            when (kidsOverride?.decision) {
+                KidsOverrideDecision.Blocked,
+                KidsOverrideDecision.Allowed,
+                -> FocusButton(
+                    label = "Restore age-rating rule",
+                    selected = false,
+                    onClick = { onKidsOverrideChange(title, null, false) },
+                )
+
+                null -> if (baseEligible) {
+                    FocusButton(
+                        label = "Hide from Kids",
+                        selected = false,
+                        onClick = { onKidsOverrideChange(title, KidsOverrideDecision.Blocked, false) },
+                    )
+                } else {
+                    val overAge = certificationAge?.let { it > kidsMaximumAge } == true
+                    FocusButton(
+                        label = if (overAge) "Allow ${certificationAge}+ title in Kids" else "Allow in Kids",
+                        selected = false,
+                        onClick = { onKidsOverrideChange(title, KidsOverrideDecision.Allowed, overAge) },
+                    )
+                }
+            }
+        }
         LabelBlock(label = "Available on", value = title.providerLabels(providers).joinToString(" / "))
         RatingStack(ratings = title.ratings)
         BasicText(
@@ -1158,6 +1795,46 @@ private fun ProviderToggle(
                 style = TextStyle(color = Color(0xFFA8B3B7), fontSize = 13.sp),
             )
         }
+        TogglePill(enabled = enabled)
+    }
+}
+
+@Composable
+private fun SettingToggle(
+    name: String,
+    detail: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(8.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(74.dp)
+            .onFocusChanged { focused = it.isFocused }
+            .clip(shape)
+            .background(if (focused) Color(0xFF232E32) else Color(0xFF151B1E))
+            .border(if (focused) 2.dp else 1.dp, if (focused) Color(0xFFE8C468) else Color(0xFF273236), shape)
+            .clickable(onClick = onClick)
+            .focusable()
+            .padding(horizontal = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            BasicText(
+                text = name,
+                style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 19.sp, fontWeight = FontWeight.SemiBold),
+            )
+            BasicText(
+                text = detail,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = TextStyle(color = Color(0xFFA8B3B7), fontSize = 13.sp),
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
         TogglePill(enabled = enabled)
     }
 }
@@ -1264,11 +1941,144 @@ private fun FocusButton(
     }
 }
 
+@Composable
+private fun ParentPinDialog(
+    title: String,
+    message: String,
+    error: String?,
+    onCancel: () -> Unit,
+    onSubmit: (String) -> Unit,
+) {
+    var pin by remember(title) { mutableStateOf("") }
+    var localError by remember(title) { mutableStateOf<String?>(null) }
+    val firstButton = remember { FocusRequester() }
+
+    LaunchedEffect(title) {
+        firstButton.requestFocus()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xE60A0C0E)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .width(430.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF151B1E))
+                .border(1.dp, Color(0xFF3A484D), RoundedCornerShape(8.dp))
+                .padding(26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            BasicText(
+                text = title,
+                style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 24.sp, fontWeight = FontWeight.Bold),
+            )
+            BasicText(
+                text = message,
+                style = TextStyle(color = Color(0xFFA8B3B7), fontSize = 14.sp),
+            )
+            BasicText(
+                text = (0 until 4).joinToString("  ") { index -> if (index < pin.length) "*" else "-" },
+                style = TextStyle(color = Color(0xFFE8C468), fontSize = 28.sp, fontWeight = FontWeight.Bold),
+            )
+            (listOf("1", "2", "3", "4", "5", "6", "7", "8", "9") + listOf("Clear", "0", "OK"))
+                .chunked(3)
+                .forEachIndexed { rowIndex, row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        row.forEachIndexed { columnIndex, label ->
+                            val buttonModifier = if (rowIndex == 0 && columnIndex == 0) {
+                                Modifier.width(112.dp).focusRequester(firstButton)
+                            } else {
+                                Modifier.width(112.dp)
+                            }
+                            FocusButton(
+                                label = label,
+                                selected = false,
+                                modifier = buttonModifier,
+                                onClick = {
+                                    localError = null
+                                    when (label) {
+                                        "Clear" -> pin = ""
+                                        "OK" -> if (pin.length == 4) onSubmit(pin) else localError = "Enter four digits"
+                                        else -> if (pin.length < 4) pin += label
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+            BasicText(
+                text = localError ?: error.orEmpty(),
+                modifier = Modifier.height(20.dp),
+                style = TextStyle(color = Color(0xFFE18B78), fontSize = 13.sp),
+            )
+            FocusButton(
+                label = "Cancel",
+                selected = false,
+                modifier = Modifier.width(356.dp),
+                onClick = onCancel,
+            )
+        }
+    }
+}
+
 private val MediaKind.label: String
     get() = when (this) {
         MediaKind.Movie -> "Movie"
         MediaKind.Series -> "Series"
     }
+
+private val BrowseMediaFilter.label: String
+    get() = when (this) {
+        BrowseMediaFilter.All -> "All"
+        BrowseMediaFilter.Movies -> "Movies"
+        BrowseMediaFilter.Series -> "Series"
+    }
+
+private val BrowseSort.label: String
+    get() = when (this) {
+        BrowseSort.Title -> "Title"
+        BrowseSort.Newest -> "Newest"
+        BrowseSort.ImdbRating -> "IMDb rating"
+        BrowseSort.TmdbRating -> "TMDb rating"
+    }
+
+private val BrowseSort.ratingSource: String?
+    get() = when (this) {
+        BrowseSort.ImdbRating -> "IMDb"
+        BrowseSort.TmdbRating -> "TMDb"
+        else -> null
+    }
+
+private fun ParentAction.parentPinMessage(maximumAge: Int): String = when (this) {
+    ParentAction.OpenParentalControls -> "Parent access is required to manage the Kids catalogue."
+    is ParentAction.SetKidsOverride -> when (decision) {
+        KidsOverrideDecision.Blocked -> "Hide $titleName from every Kids surface?"
+        KidsOverrideDecision.Allowed -> if (allowsOverAge) {
+            "Allow $titleName in Kids despite the $maximumAge+ age limit?"
+        } else {
+            "Manually allow $titleName in Kids?"
+        }
+        null -> "Restore age-rating rules for $titleName?"
+    }
+    else -> "Parent access is required for this change."
+}
+
+private fun KidsCatalogueOverride.toPlaceholderTitle(): Title = Title(
+    id = titleId,
+    name = titleName.ifBlank { "Unavailable title" },
+    year = null,
+    mediaKind = titleId.mediaKind,
+    runtimeMinutes = null,
+    synopsis = "This title is not in the current subscription catalogue.",
+    offers = emptyList(),
+    ratings = emptyList(),
+    launchTargets = emptyList(),
+)
 
 private fun Title.providerLabels(providers: List<Provider>): List<String> =
     offers.mapNotNull { offer -> providers.firstOrNull { it.id == offer.providerId }?.shortName }.distinct()

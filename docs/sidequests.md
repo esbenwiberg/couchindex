@@ -122,6 +122,13 @@ Android TV does support app channels and programs on the system home screen. A d
 channel can appear automatically, while additional channels require user approval. This
 is the supported direction for reducing startup clicks.
 
+The default-channel prototype is implemented and emulator-validated. It publishes from
+the last valid local snapshot, reconciles stale cards, uses canonical title app links and
+tracks the active Adult or Kids catalogue boundary. Cold boot correctly remains on Google
+TV Home; waking with CouchIndex already foreground resumed the app on the project AVD.
+Final row rendering, exact D-pad counts and manufacturer power settings remain a physical
+device gate. See [the startup-presence investigation](investigations/google-tv-startup-presence.md).
+
 ### Investigation scope
 
 - Verify background-activity behavior on the project emulator and physical Google TV

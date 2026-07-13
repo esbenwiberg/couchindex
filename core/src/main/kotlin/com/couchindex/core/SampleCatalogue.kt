@@ -35,6 +35,14 @@ object SampleCatalogue {
         Subscription(providerId = "viaplay", enabled = false),
     )
 
+    val genres = listOf(
+        Genre(18, "Drama", setOf(MediaKind.Movie, MediaKind.Series)),
+        Genre(35, "Comedy", setOf(MediaKind.Movie, MediaKind.Series)),
+        Genre(99, "Documentary", setOf(MediaKind.Movie)),
+        Genre(878, "Science Fiction", setOf(MediaKind.Movie, MediaKind.Series)),
+        Genre(9648, "Mystery", setOf(MediaKind.Movie, MediaKind.Series)),
+    )
+
     val recentLaunches = listOf(
         RecentLaunch(
             titleId = TitleId(tmdbId = 1002, mediaKind = MediaKind.Series),
@@ -52,6 +60,7 @@ object SampleCatalogue {
             id = TitleId(tmdbId = 1001, mediaKind = MediaKind.Movie),
             name = "Northern Signal",
             year = 2026,
+            releaseDate = "2026-05-14",
             mediaKind = MediaKind.Movie,
             runtimeMinutes = 104,
             synopsis = "A radio engineer in Tromso finds a lost broadcast that seems to predict the next storm.",
@@ -60,11 +69,13 @@ object SampleCatalogue {
             launchTargets = launchTargets("netflix", "max"),
             isNewOnService = true,
             genreIds = setOf(878, 18),
+            certification = certification(11),
         ),
         Title(
             id = TitleId(tmdbId = 1002, mediaKind = MediaKind.Series),
             name = "Kitchen Shift",
             year = 2025,
+            releaseDate = "2025-09-03",
             mediaKind = MediaKind.Series,
             runtimeMinutes = null,
             synopsis = "A Copenhagen restaurant team tries to keep service calm while everything personal boils over.",
@@ -73,11 +84,13 @@ object SampleCatalogue {
             launchTargets = launchTargets("disney"),
             isNewOnService = true,
             genreIds = setOf(18, 35),
+            certification = certification(7),
         ),
         Title(
             id = TitleId(tmdbId = 1003, mediaKind = MediaKind.Movie),
             name = "Low Tide",
             year = 2024,
+            releaseDate = "2024-11-22",
             mediaKind = MediaKind.Movie,
             runtimeMinutes = 91,
             synopsis = "Two sisters return to an island hotel and uncover why every guest left on the same night.",
@@ -86,11 +99,13 @@ object SampleCatalogue {
             launchTargets = launchTargets("max"),
             isHiddenGem = true,
             genreIds = setOf(9648, 18),
+            certification = certification(15),
         ),
         Title(
             id = TitleId(tmdbId = 1004, mediaKind = MediaKind.Series),
             name = "Orbit Season",
             year = 2026,
+            releaseDate = "2026-02-08",
             mediaKind = MediaKind.Series,
             runtimeMinutes = null,
             synopsis = "A small orbital crew manages supply failures, private doubts and the strangest sunrise on record.",
@@ -98,11 +113,13 @@ object SampleCatalogue {
             ratings = ratings(imdb = 8.1, imdbVotes = 35100, tmdb = 80.0, tmdbVotes = 4300),
             launchTargets = launchTargets("netflix"),
             genreIds = setOf(878, 18),
+            certification = certification(7),
         ),
         Title(
             id = TitleId(tmdbId = 1005, mediaKind = MediaKind.Movie),
             name = "Long Weekend",
             year = 2023,
+            releaseDate = "2023-06-16",
             mediaKind = MediaKind.Movie,
             runtimeMinutes = 112,
             synopsis = "A family holiday turns into a dry, funny negotiation over who gets to remember the past correctly.",
@@ -111,11 +128,13 @@ object SampleCatalogue {
             launchTargets = launchTargets("disney", "viaplay"),
             isHiddenGem = true,
             genreIds = setOf(35, 18),
+            certification = certification(0),
         ),
         Title(
             id = TitleId(tmdbId = 1006, mediaKind = MediaKind.Movie),
             name = "Glass Mountain",
             year = 2025,
+            releaseDate = "2025-01-30",
             mediaKind = MediaKind.Movie,
             runtimeMinutes = 136,
             synopsis = "A climbing documentary follows three attempts, one impossible route and no clean heroic ending.",
@@ -124,6 +143,7 @@ object SampleCatalogue {
             launchTargets = launchTargets("viaplay"),
             isNewOnService = true,
             genreIds = setOf(99),
+            certification = certification(7),
         ),
     )
 
@@ -169,6 +189,9 @@ object SampleCatalogue {
             retrievedAt = "2026-07-11",
         ),
     )
+
+    private fun certification(minimumAge: Int): ContentCertification =
+        ContentCertification(countryCode = "DK", rating = minimumAge.toString(), minimumAge = minimumAge)
 
     private fun providerName(providerId: String): String =
         providers.first { it.id == providerId }.name

@@ -11,6 +11,7 @@ class CatalogueSnapshotCodecTest {
         savedAtEpochMillis = 1_700_000_000_000,
         providers = SampleCatalogue.providers,
         titles = SampleCatalogue.titles,
+        genres = SampleCatalogue.genres,
     )
 
     @Test
@@ -23,7 +24,7 @@ class CatalogueSnapshotCodecTest {
     @Test
     fun `rejects malformed and unsupported snapshots`() {
         assertNull(CatalogueSnapshotCodec.decode("not json"))
-        assertNull(CatalogueSnapshotCodec.decode("""{"version":2}"""))
+        assertNull(CatalogueSnapshotCodec.decode("""{"version":4}"""))
     }
 
     @Test

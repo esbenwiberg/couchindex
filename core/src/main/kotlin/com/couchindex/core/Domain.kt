@@ -5,6 +5,11 @@ enum class MediaKind {
     Series,
 }
 
+enum class ViewerProfile {
+    Adult,
+    Kids,
+}
+
 enum class MonetizationType {
     Subscription,
     Rent,
@@ -80,10 +85,35 @@ enum class FeedbackValue {
     Disliked,
 }
 
+enum class KidsOverrideDecision {
+    Allowed,
+    Blocked,
+}
+
+data class KidsCatalogueOverride(
+    val titleId: TitleId,
+    val decision: KidsOverrideDecision,
+    val allowsOverAge: Boolean = false,
+    val changedAtEpochMillis: Long,
+    val titleName: String = "",
+)
+
 data class FeedbackEntry(
     val titleId: TitleId,
     val value: FeedbackValue,
     val changedAtEpochMillis: Long,
+)
+
+data class ContentCertification(
+    val countryCode: String,
+    val rating: String,
+    val minimumAge: Int,
+)
+
+data class Genre(
+    val id: Int,
+    val name: String,
+    val mediaKinds: Set<MediaKind>,
 )
 
 data class Title(
@@ -96,11 +126,13 @@ data class Title(
     val offers: List<Offer>,
     val ratings: List<Rating>,
     val launchTargets: List<LaunchTarget>,
+    val releaseDate: String? = null,
     val isNewOnService: Boolean = false,
     val isHiddenGem: Boolean = false,
     val externalIds: Map<String, String> = emptyMap(),
     val posterUrl: String? = null,
     val genreIds: Set<Int> = emptySet(),
+    val certification: ContentCertification? = null,
 )
 
 data class BrowseRow(

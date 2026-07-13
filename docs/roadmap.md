@@ -90,31 +90,35 @@ acceptance gates live in [the sidequest roadmap](sidequests.md).
 
 ### SQ1: Kids mode foundation
 
-- [ ] Adult and Kids application modes
-- [ ] One-action entry and PIN-protected exit
-- [ ] Start-in-Kids-mode setting without adult-content flash
-- [ ] Fail-closed certification eligibility across every catalogue surface
-- [ ] Separate Adult and Kids personal state
+- [x] Adult and Kids application modes
+- [x] One-action entry and PIN-protected exit
+- [x] Start-in-Kids-mode setting without adult-content flash
+- [x] Fail-closed certification eligibility across every catalogue surface
+- [x] Separate Adult and Kids personal state
 
 ### SQ2: Parent catalogue controls
 
-- [ ] Hide a movie or whole series from Kids mode
-- [ ] PIN-protected blocked and allowed title management
-- [ ] Persistent canonical-title overrides with block-first precedence
-- [ ] Immediate removal from every Kids surface
+- [x] Hide a movie or whole series from Kids mode
+- [x] PIN-protected blocked and allowed title management
+- [x] Persistent canonical-title overrides with block-first precedence
+- [x] Immediate removal from every Kids surface
 
 ### SQ3: Category browse and transparent sorting
 
-- [ ] Movie and TV genre directory metadata
-- [ ] Exact release or first-air date in titles and snapshots
-- [ ] Media-kind and genre browse filters
-- [ ] Newest, IMDb, TMDb and title sort modes
-- [ ] D-pad position restoration across details navigation
+- [x] Movie and TV genre directory metadata
+- [x] Exact release or first-air date in titles and snapshots
+- [x] Media-kind and genre browse filters
+- [x] Newest, IMDb, TMDb and title sort modes
+- [x] D-pad position restoration across details navigation
 
 ### SQ4: Google TV startup presence
 
-- [ ] Record boot and wake behavior on emulator and physical Google TV
-- [ ] Confirm portable background-launch limitations
-- [ ] Prototype a CouchIndex home-screen channel
-- [ ] Compare launcher, channel and resume-last-app click counts
-- [ ] Document portable, device-specific and unsupported behavior
+- [x] Record boot, wake and restart behavior on the project Google TV emulator
+- [ ] Record boot, wake, channel rendering and exact click counts on physical Google TV
+- [x] Confirm portable background-launch limitations
+- [x] Prototype and emulator-validate a CouchIndex home-screen channel
+- [x] Compare launcher, channel and resume-last-app activation counts
+- [x] Document portable, device-specific and unsupported behavior
+
+See [the Google TV startup-presence investigation](investigations/google-tv-startup-presence.md)
+for evidence and the remaining physical-device checklist.

@@ -9,23 +9,25 @@ class TmdbTitleDetailsParserTest {
     @Test
     fun `parses movie runtime and supported external identifiers`() {
         val details = TmdbTitleDetailsParser.parse(
-            """{"runtime":169,"external_ids":{"imdb_id":"tt0816692","wikidata_id":""}}""",
+            """{"runtime":169,"external_ids":{"imdb_id":"tt0816692","wikidata_id":""},"release_dates":{"results":[{"iso_3166_1":"DK","release_dates":[{"certification":"7"},{"certification":"11"}]}]}}""",
             MediaKind.Movie,
         )
 
         assertEquals(169, details.runtimeMinutes)
         assertEquals(mapOf("imdb" to "tt0816692"), details.externalIds)
+        assertEquals(11, details.certification?.minimumAge)
     }
 
     @Test
     fun `parses the first positive series episode runtime`() {
         val details = TmdbTitleDetailsParser.parse(
-            """{"episode_run_time":[0,52],"external_ids":{"imdb_id":"tt0903747"}}""",
+            """{"episode_run_time":[0,52],"external_ids":{"imdb_id":"tt0903747"},"content_ratings":{"results":[{"iso_3166_1":"DK","rating":"7"}]}}""",
             MediaKind.Series,
         )
 
         assertEquals(52, details.runtimeMinutes)
         assertEquals("tt0903747", details.externalIds["imdb"])
+        assertEquals("7", details.certification?.rating)
     }
 
     @Test
@@ -33,12 +35,23 @@ class TmdbTitleDetailsParserTest {
         val client = TmdbDiscoverClient("token", "https://example.test/3")
 
         assertEquals(
-            "https://example.test/3/movie/42?append_to_response=external_ids&language=en-US",
+            "https://example.test/3/movie/42?append_to_response=external_ids%2Crelease_dates&language=en-US",
             client.titleDetailsUrl(TitleId(42, MediaKind.Movie)).toString(),
         )
         assertEquals(
-            "https://example.test/3/tv/84?append_to_response=external_ids&language=en-US",
+            "https://example.test/3/tv/84?append_to_response=external_ids%2Ccontent_ratings&language=en-US",
             client.titleDetailsUrl(TitleId(84, MediaKind.Series)).toString(),
         )
+    }
+
+    @Test
+    fun `does not fall back to another country certification`() {
+        val details = TmdbTitleDetailsParser.parse(
+            """{"external_ids":{},"content_ratings":{"results":[{"iso_3166_1":"US","rating":"TV-Y7"}]}}""",
+            MediaKind.Series,
+            region = "DK",
+        )
+
+        assertEquals(null, details.certification)
     }
 }
