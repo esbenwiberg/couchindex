@@ -2,6 +2,9 @@
 
 Ideas live here until they are concrete enough for the roadmap.
 
+Kids mode, parent catalogue controls, category browse and Google TV startup presence have
+moved to [the sidequest roadmap](sidequests.md).
+
 - Leaving-soon alerts
 - Hidden gems based on rating confidence
 - Runtime and mood filters
