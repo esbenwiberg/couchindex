@@ -14,7 +14,7 @@ Audited on 2026-07-13 against the current Android and Play documentation.
 | SDK compatibility | `minSdk 28`, `targetSdk 37` | Ready. Current TV submissions require target API 34 or newer and common-device support requires minimum API 31 or lower. |
 | TV manifest | Leanback required, touchscreen optional, landscape launcher activity | Ready. Preserve the TV-only form-factor declarations. |
 | Launcher assets | Scalable icon and 320x180 raster banner containing `CouchIndex` | Ready for emulator and physical-launcher review. |
-| Release artifact | The validator builds and cryptographically verifies a signed 7.2 MB AAB | Ready after the upload key is backed up in separate secure storage. |
+| Release artifact | The validator builds and cryptographically verifies a signed 7.2 MB AAB; upload credentials are backed up separately | Ready for Play upload after developer verification. |
 | Native compatibility | `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64` are packaged | Retain 64-bit support and verify 16 KB page compatibility when native dependencies change. |
 | Personal data | Subscriptions, feedback, history and catalogue cache remain on device and are excluded from backup and transfer | Ready. Revisit only if explicit synchronization is introduced. |
 | Network data | TMDb catalogue requests and IMDb dataset downloads only | Document declarations and publish a privacy policy before closed or production testing. |

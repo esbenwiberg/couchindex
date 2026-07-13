@@ -61,7 +61,7 @@
 - [x] Define upload-key signing without committing credentials
 - [x] Produce and validate a release Android App Bundle
 - [x] Create the upload key and validate a signed release bundle
-- [ ] Back up the upload keystore and its Keychain password separately
+- [x] Back up the upload keystore and its Keychain password separately
 - [x] Add modern backup and device-transfer exclusions for local personal state
 - [x] Capture final Android TV store screenshots
 - [x] Prepare Play icon, feature graphic and Android TV listing banner
