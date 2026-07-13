@@ -82,3 +82,39 @@
 - [x] Recommendations based on personal feedback
 
 See [the post-V1 integration investigation](investigations/post-v1-integrations.md) for decisions and remaining gates.
+
+## Sidequest milestones
+
+These can proceed while Play developer verification is pending. Their detailed scope and
+acceptance gates live in [the sidequest roadmap](sidequests.md).
+
+### SQ1: Kids mode foundation
+
+- [ ] Adult and Kids application modes
+- [ ] One-action entry and PIN-protected exit
+- [ ] Start-in-Kids-mode setting without adult-content flash
+- [ ] Fail-closed certification eligibility across every catalogue surface
+- [ ] Separate Adult and Kids personal state
+
+### SQ2: Parent catalogue controls
+
+- [ ] Hide a movie or whole series from Kids mode
+- [ ] PIN-protected blocked and allowed title management
+- [ ] Persistent canonical-title overrides with block-first precedence
+- [ ] Immediate removal from every Kids surface
+
+### SQ3: Category browse and transparent sorting
+
+- [ ] Movie and TV genre directory metadata
+- [ ] Exact release or first-air date in titles and snapshots
+- [ ] Media-kind and genre browse filters
+- [ ] Newest, IMDb, TMDb and title sort modes
+- [ ] D-pad position restoration across details navigation
+
+### SQ4: Google TV startup presence
+
+- [ ] Record boot and wake behavior on emulator and physical Google TV
+- [ ] Confirm portable background-launch limitations
+- [ ] Prototype a CouchIndex home-screen channel
+- [ ] Compare launcher, channel and resume-last-app click counts
+- [ ] Document portable, device-specific and unsupported behavior

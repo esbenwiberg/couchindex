@@ -15,6 +15,7 @@ This directory is the source of truth for product intent and architectural decis
 9. [Privacy policy](privacy.md)
 10. [Play Data safety answers](play-data-safety.md)
 11. [Architecture Decision Records](adr/README.md)
+12. [Sidequest roadmap](sidequests.md)
 
 ## Supporting documents
 
