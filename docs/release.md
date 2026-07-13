@@ -13,10 +13,10 @@ Audited on 2026-07-13 against the current Android and Play documentation.
 | Package identity | `com.couchindex.app` | Confirm before the Play app is created; it becomes permanent after publication. |
 | SDK compatibility | `minSdk 28`, `targetSdk 37` | Ready. Current TV submissions require target API 34 or newer and common-device support requires minimum API 31 or lower. |
 | TV manifest | Leanback required, touchscreen optional, landscape launcher activity | Ready. Preserve the TV-only form-factor declarations. |
-| Launcher assets | Scalable icon; abstract 320x180 vector banner without the app name | Replace the banner with a raster 320x180 asset containing `CouchIndex`. |
-| Release artifact | Unsigned 7.2 MB AAB builds successfully | Configure a recoverable upload key and validate the signed AAB before upload. |
+| Launcher assets | Scalable icon and 320x180 raster banner containing `CouchIndex` | Ready for emulator and physical-launcher review. |
+| Release artifact | The validator builds and inspects an unsigned 7.2 MB AAB | Configure a recoverable upload key and rerun with `--require-signed` before upload. |
 | Native compatibility | `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64` are packaged | Retain 64-bit support and verify 16 KB page compatibility when native dependencies change. |
-| Personal data | Subscriptions, feedback, history and catalogue cache remain on device | Explicitly exclude all app data from cloud backup and device transfer. |
+| Personal data | Subscriptions, feedback, history and catalogue cache remain on device and are excluded from backup and transfer | Ready. Revisit only if explicit synchronization is introduced. |
 | Network data | TMDb catalogue requests and IMDb dataset downloads only | Document declarations and publish a privacy policy before closed or production testing. |
 | Store media | Emulator smoke screenshots exist | Capture a final curated 16:9 TV screenshot set after the release UI is frozen. |
 | Device behavior | Google TV emulator validated | Verify launcher artwork and real provider handoffs on physical Google TV hardware. |
@@ -28,6 +28,11 @@ separate upload key. Keep the keystore and passwords outside the repository, bac
 in recoverable secure storage. The Gradle release configuration may read paths and
 credentials from ignored local properties, but must still permit an unsigned local
 bundle for deterministic CI validation.
+
+Local release validation is automated by `scripts/validate-release.sh`. The default
+mode accepts an unsigned artifact; `--require-signed` is mandatory before a Play upload.
+Signing configuration uses the four `COUCHINDEX_UPLOAD_*` values documented in
+`docs/development.md` and fails configuration when only a partial set is supplied.
 
 The TMDb API read token is application-level authentication and is compiled into the
 client artifact. It must remain read-only; no TMDb user token or other account secret

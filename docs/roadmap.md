@@ -57,10 +57,10 @@
 ## Milestone 8: release readiness
 
 - [ ] Confirm `com.couchindex.app` as the permanent Play package identity
-- [ ] Replace the launcher banner with a Play-compliant 320x180 asset containing the app name
-- [ ] Define upload-key signing without committing credentials
-- [ ] Produce and validate a release Android App Bundle
-- [ ] Add modern backup and device-transfer exclusions for local personal state
+- [x] Replace the launcher banner with a Play-compliant 320x180 asset containing the app name
+- [x] Define upload-key signing without committing credentials
+- [x] Produce and validate a release Android App Bundle
+- [x] Add modern backup and device-transfer exclusions for local personal state
 - [ ] Capture final Android TV store screenshots
 - [ ] Validate provider handoffs on physical Google TV hardware
 - [ ] Complete Play listing, privacy and data-safety declarations

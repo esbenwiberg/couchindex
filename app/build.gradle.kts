@@ -11,6 +11,23 @@ val localProperties = Properties().apply {
     }
 }
 
+private fun releaseCredential(name: String): String? =
+    providers.environmentVariable(name).orNull
+        ?.takeIf(String::isNotBlank)
+        ?: localProperties.getProperty(name)?.takeIf(String::isNotBlank)
+
+val releaseSigningCredentials = mapOf(
+    "storeFile" to releaseCredential("COUCHINDEX_UPLOAD_STORE_FILE"),
+    "storePassword" to releaseCredential("COUCHINDEX_UPLOAD_STORE_PASSWORD"),
+    "keyAlias" to releaseCredential("COUCHINDEX_UPLOAD_KEY_ALIAS"),
+    "keyPassword" to releaseCredential("COUCHINDEX_UPLOAD_KEY_PASSWORD"),
+)
+val configuredReleaseCredentialCount = releaseSigningCredentials.values.count { it != null }
+check(configuredReleaseCredentialCount == 0 || configuredReleaseCredentialCount == releaseSigningCredentials.size) {
+    "Release signing is partially configured. Supply all COUCHINDEX_UPLOAD_* values or none."
+}
+val releaseSigningConfigured = configuredReleaseCredentialCount == releaseSigningCredentials.size
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -39,9 +56,34 @@ android {
         compose = true
     }
 
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = rootProject.file(checkNotNull(releaseSigningCredentials["storeFile"]))
+                storePassword = releaseSigningCredentials["storePassword"]
+                keyAlias = releaseSigningCredentials["keyAlias"]
+                keyPassword = releaseSigningCredentials["keyPassword"]
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.findByName("release")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+tasks.register("releaseSigningStatus") {
+    group = "verification"
+    description = "Reports whether upload-key signing is configured without printing credentials."
+    doLast {
+        println(if (releaseSigningConfigured) "Release signing configured." else "Release signing not configured.")
     }
 }
 

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">
+  <rect width="320" height="180" fill="#111417"/>
+  <rect y="132" width="320" height="48" fill="#1c2428"/>
+  <g aria-label="CouchIndex mark">
+    <rect x="28" y="50" width="52" height="10" fill="#e8c468"/>
+    <rect x="28" y="76" width="38" height="10" fill="#e8c468"/>
+    <rect x="28" y="102" width="46" height="10" fill="#e8c468"/>
+    <circle cx="82" cy="78" r="13" fill="#4ba3c7"/>
+    <circle cx="82" cy="78" r="6" fill="#111417"/>
+  </g>
+  <text x="111" y="86" fill="#f4f1e8" font-family="Arial, Helvetica, sans-serif"
+      font-size="30" font-weight="700">CouchIndex</text>
+  <text x="112" y="108" fill="#9caaaf" font-family="Arial, Helvetica, sans-serif"
+      font-size="10">PERSONAL TV INDEX</text>
+</svg>

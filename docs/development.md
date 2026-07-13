@@ -48,6 +48,35 @@ Run the local TV smoke check:
 
 Smoke screenshots are written under `build/tv-smoke/`, which is ignored by git.
 
+## Release bundle
+
+Build, test, lint and inspect an unsigned local Android App Bundle with:
+
+```sh
+./scripts/validate-release.sh
+```
+
+Release signing is optional for local validation. Before a Play upload, create a
+recoverable upload key and provide all four values through ignored `local.properties`
+entries or environment variables:
+
+```properties
+COUCHINDEX_UPLOAD_STORE_FILE=/absolute/path/to/couchindex-upload.jks
+COUCHINDEX_UPLOAD_STORE_PASSWORD=your_store_password
+COUCHINDEX_UPLOAD_KEY_ALIAS=couchindex-upload
+COUCHINDEX_UPLOAD_KEY_PASSWORD=your_key_password
+```
+
+Then enforce signature verification:
+
+```sh
+./scripts/validate-release.sh --require-signed
+```
+
+The release bundle is written to
+`app/build/outputs/bundle/release/app-release.aab`. Never commit a keystore or its
+credentials.
+
 ## Catalogue cache
 
 The last successful live provider directory and enriched catalogue are stored atomically in the app-private file
