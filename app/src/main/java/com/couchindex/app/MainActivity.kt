@@ -1,5 +1,7 @@
 package com.couchindex.app
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -62,6 +64,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.couchindex.app.config.AppConfig
 import com.couchindex.app.config.AppConfigLoader
+import com.couchindex.app.config.PrivacyPolicy
 import com.couchindex.app.cache.CatalogueCacheStore
 import com.couchindex.app.cache.CatalogueSnapshot
 import com.couchindex.app.cache.cacheStatus
@@ -373,6 +376,13 @@ private fun CouchIndexApp() {
                         subscriptionStore.setEnabled(updated.providerId, updated.enabled)
                     }
                 },
+                onPrivacyPolicySelected = {
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PrivacyPolicy.URL)))
+                    }.onFailure {
+                        Toast.makeText(context, "Privacy policy is unavailable", Toast.LENGTH_SHORT).show()
+                    }
+                },
                 onWatchlistToggle = { title ->
                     val isMember = title.id in watchlistedTitleIds
                     watchlistEntries.clear()
@@ -476,6 +486,7 @@ private fun MainSurface(
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onSubscriptionToggle: (String) -> Unit,
+    onPrivacyPolicySelected: () -> Unit,
     onWatchlistToggle: (Title) -> Unit,
     onWatchedToggle: (Title) -> Unit,
     onContinueWatchingRemove: (Title) -> Unit,
@@ -517,6 +528,7 @@ private fun MainSurface(
                     providers = providers,
                     subscriptions = subscriptions,
                     onSubscriptionToggle = onSubscriptionToggle,
+                    onPrivacyPolicySelected = onPrivacyPolicySelected,
                 )
             }
         }
@@ -723,11 +735,26 @@ private fun SettingsScreen(
     providers: List<Provider>,
     subscriptions: List<Subscription>,
     onSubscriptionToggle: (String) -> Unit,
+    onPrivacyPolicySelected: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        item {
+            BasicText(
+                text = "About",
+                style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 22.sp, fontWeight = FontWeight.SemiBold),
+            )
+        }
+        item {
+            FocusButton(
+                label = "Privacy policy",
+                selected = false,
+                onClick = onPrivacyPolicySelected,
+            )
+        }
+        item { Spacer(modifier = Modifier.height(12.dp)) }
         item {
             BasicText(
                 text = "Subscriptions",

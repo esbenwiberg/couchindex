@@ -1,12 +1,19 @@
-# CouchIndex Privacy Policy Draft
+---
+layout: default
+title: CouchIndex Privacy Policy
+permalink: /privacy/
+---
 
-**Status:** Release draft. Publish at a stable public URL before release.
+# CouchIndex Privacy Policy
 
-**Effective date:** To be set when published.
+**Effective date:** July 13, 2026
 
 CouchIndex is a Google TV application that combines catalogue and availability data
 for streaming services selected by the user. It does not require a CouchIndex account
 and does not include advertising or analytics SDKs.
+
+The developer responsible for CouchIndex can be contacted using the address in the
+Contact section below.
 
 ## Information stored on the device
 
@@ -58,4 +65,4 @@ the corresponding data practice.
 ## Contact
 
 Questions about CouchIndex or this policy can be sent to
-mint-apps.earthlike955@passmail.com.
+[mint-apps.earthlike955@passmail.com](mailto:mint-apps.earthlike955@passmail.com).

@@ -11,9 +11,10 @@ This directory is the source of truth for product intent and architectural decis
 5. [Roadmap](roadmap.md)
 6. [Development](development.md)
 7. [Release preparation](release.md)
-8. [Play Store listing draft](play-listing.md)
-9. [Privacy policy draft](privacy.md)
-10. [Architecture Decision Records](adr/README.md)
+8. [Play Store listing](play-listing.md)
+9. [Privacy policy](privacy.md)
+10. [Play Data safety answers](play-data-safety.md)
+11. [Architecture Decision Records](adr/README.md)
 
 ## Supporting documents
 

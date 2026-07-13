@@ -1,7 +1,7 @@
-# Play Store Listing Draft
+# Play Store Listing
 
-This copy is ready for an English-language Android TV internal-testing listing. Review
-it again against the final artifact before broader release.
+This copy is ready for the English-language Android TV internal-testing listing.
+Review it again against the final artifact before broader release.
 
 ## Listing fields
 
@@ -76,6 +76,9 @@ cards with the phrase Your services. One index.
 
 ## Owner-supplied fields
 
-- Privacy-policy URL
+- Privacy-policy URL: https://esbenwiberg.github.io/couchindex/privacy/
 - Developer website, if used
 - Release countries and languages
+
+Use the field-by-field declaration in [play-data-safety.md](play-data-safety.md) when
+completing the Play Data safety form.

@@ -83,14 +83,13 @@ send_key() {
   sleep 0.5
 }
 
+# Home is initially focused in the destination rail; Settings is three rows below it.
+send_key KEYCODE_DPAD_DOWN
 send_key KEYCODE_DPAD_DOWN
 send_key KEYCODE_DPAD_DOWN
 send_key KEYCODE_DPAD_CENTER
 send_key KEYCODE_DPAD_RIGHT
-send_key KEYCODE_DPAD_DOWN
-send_key KEYCODE_DPAD_DOWN
-send_key KEYCODE_DPAD_DOWN
-send_key KEYCODE_DPAD_DOWN
+send_key KEYCODE_DPAD_UP
 sleep 6
 
 "$ADB" -s "$ANDROID_SERIAL" shell dumpsys window > "$focus_after"

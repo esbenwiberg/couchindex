@@ -17,7 +17,7 @@ Audited on 2026-07-13 against the current Android and Play documentation.
 | Release artifact | The validator builds and cryptographically verifies a signed 7.2 MB AAB; upload credentials are backed up separately | Ready for Play upload after developer verification. |
 | Native compatibility | `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64` are packaged | Retain 64-bit support and verify 16 KB page compatibility when native dependencies change. |
 | Personal data | Subscriptions, feedback, history and catalogue cache remain on device and are excluded from backup and transfer | Ready. Revisit only if explicit synchronization is introduced. |
-| Network data | TMDb catalogue requests and IMDb dataset downloads only | Document declarations and publish a privacy policy before closed or production testing. |
+| Network data | TMDb catalogue requests and IMDb dataset downloads only | Policy and Data safety answers are ready; submit the declarations in Play Console before closed or production testing. |
 | Store media | Four curated 1920x1080 TV screenshots and a reproducible capture script exist | Ready for owner review and Play upload. |
 | Device behavior | Google TV emulator validated | Verify launcher artwork and real provider handoffs on physical Google TV hardware. |
 
@@ -56,9 +56,10 @@ contain the token.
 
 Before moving beyond internal testing:
 
-- Publish a privacy policy describing local personal state, TMDb requests, IMDb dataset
-  downloads, artwork loading and provider handoff.
-- Complete the Data safety form from the behavior of the final artifact and its SDKs.
+- Keep the published privacy policy aligned with local personal state, TMDb requests,
+  IMDb dataset downloads, artwork loading and provider handoff.
+- Complete the Data safety form using `docs/play-data-safety.md` and re-check its
+  answers against the final artifact and SDKs.
 - Retain visible JustWatch attribution wherever live watch-provider availability appears.
 - Supply an Android TV banner and at least one accurate Android TV screenshot.
 - Re-check target API, testing-track and developer-account requirements immediately
