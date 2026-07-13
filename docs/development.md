@@ -77,6 +77,14 @@ The release bundle is written to
 `app/build/outputs/bundle/release/app-release.aab`. Never commit a keystore or its
 credentials.
 
+Capture the four Android TV listing surfaces after emulator validation with:
+
+```sh
+./scripts/capture-tv-store-assets.sh --skip-install
+```
+
+The 1920x1080 PNGs are written under `build/play-store/tv/`, which is ignored by git.
+
 ## Catalogue cache
 
 The last successful live provider directory and enriched catalogue are stored atomically in the app-private file

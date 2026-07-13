@@ -61,9 +61,10 @@
 - [x] Define upload-key signing without committing credentials
 - [x] Produce and validate a release Android App Bundle
 - [x] Add modern backup and device-transfer exclusions for local personal state
-- [ ] Capture final Android TV store screenshots
+- [x] Capture final Android TV store screenshots
 - [ ] Validate provider handoffs on physical Google TV hardware
 - [ ] Complete Play listing, privacy and data-safety declarations
+- [x] Draft Play listing copy, privacy policy and data-flow evidence
 - [ ] Publish and install an internal-testing build
 
 ## Later investigations

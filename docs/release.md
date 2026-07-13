@@ -18,7 +18,7 @@ Audited on 2026-07-13 against the current Android and Play documentation.
 | Native compatibility | `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64` are packaged | Retain 64-bit support and verify 16 KB page compatibility when native dependencies change. |
 | Personal data | Subscriptions, feedback, history and catalogue cache remain on device and are excluded from backup and transfer | Ready. Revisit only if explicit synchronization is introduced. |
 | Network data | TMDb catalogue requests and IMDb dataset downloads only | Document declarations and publish a privacy policy before closed or production testing. |
-| Store media | Emulator smoke screenshots exist | Capture a final curated 16:9 TV screenshot set after the release UI is frozen. |
+| Store media | Four curated 1920x1080 TV screenshots and a reproducible capture script exist | Ready for owner review and Play upload. |
 | Device behavior | Google TV emulator validated | Verify launcher artwork and real provider handoffs on physical Google TV hardware. |
 
 ## Signing contract
