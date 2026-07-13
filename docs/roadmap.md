@@ -66,6 +66,7 @@
 - [ ] Validate provider handoffs on physical Google TV hardware
 - [ ] Complete Play listing, privacy and data-safety declarations
 - [x] Draft Play listing copy, privacy policy and data-flow evidence
+- [x] Add a monitored release support email
 - [ ] Publish and install an internal-testing build
 
 ## Later investigations

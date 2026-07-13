@@ -13,6 +13,10 @@ CouchIndex
 
 Browse your streaming subscriptions in one calm, personal TV index.
 
+**Support email**
+
+mint-apps.earthlike955@passmail.com
+
 **Full description**
 
 CouchIndex brings the movies and series available across your streaming subscriptions
@@ -72,7 +76,6 @@ cards with the phrase Your services. One index.
 
 ## Owner-supplied fields
 
-- Support email
 - Privacy-policy URL
 - Developer website, if used
 - Release countries and languages

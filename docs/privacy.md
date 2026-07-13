@@ -1,6 +1,6 @@
 # CouchIndex Privacy Policy Draft
 
-**Status:** Release draft. Add the developer contact and public URL before publication.
+**Status:** Release draft. Publish at a stable public URL before release.
 
 **Effective date:** To be set when published.
 
@@ -57,5 +57,5 @@ the corresponding data practice.
 
 ## Contact
 
-The developer must add a monitored support email address here before this policy is
-published or linked from Google Play.
+Questions about CouchIndex or this policy can be sent to
+mint-apps.earthlike955@passmail.com.
