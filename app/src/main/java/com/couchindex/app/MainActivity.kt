@@ -3,6 +3,7 @@ package com.couchindex.app
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -84,6 +85,8 @@ import com.couchindex.app.tmdb.TmdbCatalogueRepository
 import com.couchindex.app.tmdb.TmdbDiscoverClient
 import com.couchindex.app.tmdb.TmdbGenreDirectory
 import com.couchindex.app.tmdb.TmdbProviderDirectory
+import com.couchindex.app.tv.CouchIndexDeepLinks
+import com.couchindex.app.tv.TvHomeChannelPublisher
 import com.couchindex.core.BrowseCatalogue
 import com.couchindex.core.BrowseCatalogueQuery
 import com.couchindex.core.BrowseMediaFilter
@@ -109,11 +112,23 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
+    private val requestedTitleId = mutableStateOf<TitleId?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestedTitleId.value = CouchIndexDeepLinks.parseTitleId(intent?.dataString)
         setContent {
-            CouchIndexApp()
+            CouchIndexApp(
+                requestedTitleId = requestedTitleId.value,
+                onRequestedTitleHandled = { requestedTitleId.value = null },
+            )
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        requestedTitleId.value = CouchIndexDeepLinks.parseTitleId(intent.dataString)
     }
 }
 
@@ -173,7 +188,10 @@ private data class CatalogueStatus(
 }
 
 @Composable
-private fun CouchIndexApp() {
+private fun CouchIndexApp(
+    requestedTitleId: TitleId?,
+    onRequestedTitleHandled: () -> Unit,
+) {
     val rowBuilder = remember { BuildHomeRows() }
     val kidsEligibilityPolicy = remember { KidsEligibilityPolicy() }
     val context = LocalContext.current
@@ -184,6 +202,7 @@ private fun CouchIndexApp() {
     var viewerProfile by remember { mutableStateOf(kidsSettingsStore.initialProfile()) }
     var pinFlow by remember { mutableStateOf<PinFlow?>(null) }
     val catalogueCacheStore = remember(context) { CatalogueCacheStore(context) }
+    val tvHomeChannelPublisher = remember(context) { TvHomeChannelPublisher(context) }
     var cachedSnapshot by remember(appConfig.hasTmdbReadAccessToken) {
         mutableStateOf(
             catalogueCacheStore.load()
@@ -288,6 +307,24 @@ private fun CouchIndexApp() {
     var browseMediaFilter by remember { mutableStateOf(BrowseMediaFilter.All) }
     var browseGenreId by remember { mutableStateOf<Int?>(null) }
     var browseSort by remember { mutableStateOf(BrowseSort.Title) }
+
+    LaunchedEffect(
+        cachedSnapshot?.savedAtEpochMillis,
+        viewerProfile,
+        kidsSettings.maximumAge,
+        kidsOverrides.toList(),
+    ) {
+        val snapshot = cachedSnapshot ?: return@LaunchedEffect
+        val channelTitles = if (viewerProfile == ViewerProfile.Kids) {
+            kidsEligibilityPolicy.filter(snapshot.titles, kidsSettings.maximumAge, kidsOverrides)
+        } else {
+            snapshot.titles
+        }
+        withContext(Dispatchers.IO) {
+            runCatching { tvHomeChannelPublisher.refresh(snapshot, channelTitles) }
+                .onFailure { error -> Log.w("CouchIndexTv", "TV home channel refresh failed", error) }
+        }
+    }
 
     fun completeParentAction(action: ParentAction) {
         when (action) {
@@ -475,6 +512,27 @@ private fun CouchIndexApp() {
     LaunchedEffect(rows) {
         if (selectedTitle == null || rows.none { row -> row.titles.any { it.id == selectedTitle?.id } }) {
             selectedTitle = rows.firstOrNull { it.titles.isNotEmpty() }?.titles?.firstOrNull()
+        }
+    }
+
+    LaunchedEffect(
+        requestedTitleId,
+        visibleCatalogue,
+        catalogue,
+        providerDirectoryReady,
+        genreDirectoryReady,
+    ) {
+        val titleId = requestedTitleId ?: return@LaunchedEffect
+        val requestedTitle = visibleCatalogue.firstOrNull { it.id == titleId }
+        when {
+            requestedTitle != null -> {
+                destination = Destination.Home
+                selectedTitle = requestedTitle
+                onRequestedTitleHandled()
+            }
+
+            catalogue.any { it.id == titleId } -> onRequestedTitleHandled()
+            providerDirectoryReady && genreDirectoryReady -> onRequestedTitleHandled()
         }
     }
 

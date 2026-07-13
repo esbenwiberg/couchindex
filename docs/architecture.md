@@ -40,6 +40,11 @@ snapshot. A failed refresh retains cached data and exposes its age; snapshots be
 Sample data is used only when no valid snapshot exists. Selecting a provider resolves a launch target and hands
 control to the installed provider app.
 
+The Android TV Provider contains only a derived discovery channel. CouchIndex rebuilds its
+programs from the local catalogue snapshot and removes them when that snapshot is unavailable.
+Preview-program app links resolve canonical `TitleId` values through the current Adult or Kids
+catalogue boundary; the TV Provider never becomes catalogue or parental-control state.
+
 ## Security
 
 API keys are supplied through uncommitted local configuration. CouchIndex does not store streaming-provider credentials.

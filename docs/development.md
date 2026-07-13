@@ -140,3 +140,36 @@ Check the current foreground app:
 ```sh
 /Users/ewi/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell dumpsys window | rg 'mCurrentFocus|mFocusedApp'
 ```
+
+## Google TV home channel
+
+The system sends the initialization broadcast after installation on supported Leanback
+devices. It can be replayed on the emulator after changing cached data:
+
+```sh
+/Users/ewi/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell am broadcast \
+  -a android.media.tv.action.INITIALIZE_PROGRAMS \
+  -n com.couchindex.app/.tv.TvHomeChannelReceiver
+```
+
+Debug builds retain a non-sensitive publication receipt with the channel ID and active
+program IDs. Inspect it with:
+
+```sh
+/Users/ewi/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell \
+  run-as com.couchindex.app cat shared_prefs/tv-home-channel.xml
+```
+
+Open the same canonical link used by a preview card:
+
+```sh
+/Users/ewi/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell am start \
+  -a android.intent.action.VIEW \
+  -c android.intent.category.BROWSABLE \
+  -d couchindex://title/movie/157336 \
+  com.couchindex.app
+```
+
+LauncherX needs completed Google TV account setup before it renders personalized Home
+rows. Provider publication and app-link behavior can be validated without it, but final
+row placement and artwork require a configured emulator or physical TV.

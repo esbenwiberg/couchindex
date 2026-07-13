@@ -113,8 +113,12 @@ acceptance gates live in [the sidequest roadmap](sidequests.md).
 
 ### SQ4: Google TV startup presence
 
-- [ ] Record boot and wake behavior on emulator and physical Google TV
-- [ ] Confirm portable background-launch limitations
-- [ ] Prototype a CouchIndex home-screen channel
-- [ ] Compare launcher, channel and resume-last-app click counts
-- [ ] Document portable, device-specific and unsupported behavior
+- [x] Record boot, wake and restart behavior on the project Google TV emulator
+- [ ] Record boot, wake, channel rendering and exact click counts on physical Google TV
+- [x] Confirm portable background-launch limitations
+- [x] Prototype and emulator-validate a CouchIndex home-screen channel
+- [x] Compare launcher, channel and resume-last-app activation counts
+- [x] Document portable, device-specific and unsupported behavior
+
+See [the Google TV startup-presence investigation](investigations/google-tv-startup-presence.md)
+for evidence and the remaining physical-device checklist.
