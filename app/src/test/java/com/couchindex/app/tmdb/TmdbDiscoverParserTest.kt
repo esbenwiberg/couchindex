@@ -24,5 +24,7 @@ class TmdbDiscoverParserTest {
         )
 
         assertEquals(setOf(878, 18), page.results.single().genreIds)
+        assertEquals("2025-01-02", page.results.single().releaseDate)
+        assertEquals(2025, page.results.single().year)
     }
 }

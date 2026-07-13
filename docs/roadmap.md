@@ -105,11 +105,11 @@ acceptance gates live in [the sidequest roadmap](sidequests.md).
 
 ### SQ3: Category browse and transparent sorting
 
-- [ ] Movie and TV genre directory metadata
-- [ ] Exact release or first-air date in titles and snapshots
-- [ ] Media-kind and genre browse filters
-- [ ] Newest, IMDb, TMDb and title sort modes
-- [ ] D-pad position restoration across details navigation
+- [x] Movie and TV genre directory metadata
+- [x] Exact release or first-air date in titles and snapshots
+- [x] Media-kind and genre browse filters
+- [x] Newest, IMDb, TMDb and title sort modes
+- [x] D-pad position restoration across details navigation
 
 ### SQ4: Google TV startup presence
 

@@ -60,11 +60,22 @@ data class TmdbDiscoverItem(
     val mediaKind: MediaKind,
     val name: String,
     val year: Int?,
+    val releaseDate: String? = null,
     val overview: String,
     val posterPath: String?,
     val voteAverage: Double?,
     val voteCount: Int?,
     val genreIds: Set<Int> = emptySet(),
+)
+
+enum class TmdbGenreMediaType(val path: String, val mediaKind: MediaKind) {
+    Movie("genre/movie/list", MediaKind.Movie),
+    Tv("genre/tv/list", MediaKind.Series),
+}
+
+data class TmdbGenre(
+    val id: Int,
+    val name: String,
 )
 
 data class TmdbWatchProvider(
@@ -81,6 +92,10 @@ fun interface TmdbProviderSource {
     fun fetchWatchProviders(mediaType: TmdbProviderMediaType, region: String): List<TmdbWatchProvider>
 }
 
+fun interface TmdbGenreSource {
+    fun fetchGenres(mediaType: TmdbGenreMediaType, language: String): List<TmdbGenre>
+}
+
 data class TmdbTitleDetails(
     val externalIds: Map<String, String>,
     val runtimeMinutes: Int?,
@@ -94,7 +109,7 @@ fun interface TmdbTitleDetailsSource {
 class TmdbDiscoverClient(
     private val readAccessToken: String,
     private val baseUrl: String = DEFAULT_BASE_URL,
-) : TmdbDiscoverSource, TmdbProviderSource, TmdbTitleDetailsSource {
+) : TmdbDiscoverSource, TmdbProviderSource, TmdbTitleDetailsSource, TmdbGenreSource {
     fun discoverUrl(query: TmdbDiscoverQuery): URL {
         val params = listOf(
             "language" to query.language,
@@ -130,6 +145,16 @@ class TmdbDiscoverClient(
     ): List<TmdbWatchProvider> {
         check(readAccessToken.isNotBlank()) { "TMDb read access token is missing" }
         return TmdbProviderParser.parse(executeGet(watchProvidersUrl(mediaType, region)), region)
+    }
+
+    fun genresUrl(mediaType: TmdbGenreMediaType, language: String = "en-US"): URL {
+        val params = listOf("language" to language)
+        return URL("${baseUrl.trimEnd('/')}/${mediaType.path}?${params.toQueryString()}")
+    }
+
+    override fun fetchGenres(mediaType: TmdbGenreMediaType, language: String): List<TmdbGenre> {
+        check(readAccessToken.isNotBlank()) { "TMDb read access token is missing" }
+        return TmdbGenreParser.parse(executeGet(genresUrl(mediaType, language)))
     }
 
     fun titleDetailsUrl(titleId: TitleId): URL {
@@ -271,6 +296,18 @@ object TmdbProviderParser {
     }
 }
 
+object TmdbGenreParser {
+    fun parse(body: String): List<TmdbGenre> {
+        val genres = JSONObject(body).optJSONArray("genres") ?: JSONArray()
+        return (0 until genres.length()).mapNotNull { index ->
+            val genre = genres.optJSONObject(index) ?: return@mapNotNull null
+            val id = genre.optInt("id").takeIf { it > 0 } ?: return@mapNotNull null
+            val name = genre.optString("name").trim().takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            TmdbGenre(id, name)
+        }
+    }
+}
+
 object TmdbDiscoverParser {
     fun parse(body: String, mediaType: TmdbDiscoverMediaType): TmdbDiscoverPage {
         val json = JSONObject(body)
@@ -296,6 +333,7 @@ object TmdbDiscoverParser {
             mediaKind = mediaType.mediaKind,
             name = name,
             year = nullableString(mediaType.dateKey).yearOrNull(),
+            releaseDate = nullableString(mediaType.dateKey),
             overview = nullableString("overview").orEmpty(),
             posterPath = nullableString("poster_path"),
             voteAverage = optionalDouble("vote_average"),

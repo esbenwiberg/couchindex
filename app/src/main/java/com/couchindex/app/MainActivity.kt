@@ -82,10 +82,16 @@ import com.couchindex.app.state.WatchedStore
 import com.couchindex.app.state.WatchlistStore
 import com.couchindex.app.tmdb.TmdbCatalogueRepository
 import com.couchindex.app.tmdb.TmdbDiscoverClient
+import com.couchindex.app.tmdb.TmdbGenreDirectory
 import com.couchindex.app.tmdb.TmdbProviderDirectory
+import com.couchindex.core.BrowseCatalogue
+import com.couchindex.core.BrowseCatalogueQuery
+import com.couchindex.core.BrowseMediaFilter
 import com.couchindex.core.BrowseRow
+import com.couchindex.core.BrowseSort
 import com.couchindex.core.BuildHomeRows
 import com.couchindex.core.FeedbackValue
+import com.couchindex.core.Genre
 import com.couchindex.core.LaunchTarget
 import com.couchindex.core.KidsEligibilityPolicy
 import com.couchindex.core.KidsCatalogueOverride
@@ -185,6 +191,7 @@ private fun CouchIndexApp() {
         )
     }
     val initialProviders = cachedSnapshot?.providers ?: SampleCatalogue.providers
+    val initialGenres = cachedSnapshot?.genres?.takeIf { it.isNotEmpty() } ?: SampleCatalogue.genres
     val providerLauncher = remember(context) { AndroidProviderLauncher(context) }
     val imdbRatingAdapter = remember(context) { ImdbDatasetRatingAdapter(context) }
     val recentLaunchStore = remember(context, viewerProfile) { RecentLaunchStore(context, viewerProfile) }
@@ -197,9 +204,14 @@ private fun CouchIndexApp() {
     val providerDirectory = remember(tmdbClient) {
         TmdbProviderDirectory(source = tmdbClient, fallbackProviders = SampleCatalogue.providers)
     }
+    val genreDirectory = remember(tmdbClient) { TmdbGenreDirectory(tmdbClient) }
     var providers by remember { mutableStateOf(initialProviders) }
+    var genres by remember { mutableStateOf(initialGenres) }
     var providerDirectoryReady by remember {
         mutableStateOf(!appConfig.hasTmdbReadAccessToken || cachedSnapshot != null)
+    }
+    var genreDirectoryReady by remember {
+        mutableStateOf(!appConfig.hasTmdbReadAccessToken || cachedSnapshot?.genres?.isNotEmpty() == true)
     }
     val subscriptions = remember {
         val sampleDefaults = SampleCatalogue.subscriptions.associate { it.providerId to it.enabled }
@@ -267,11 +279,15 @@ private fun CouchIndexApp() {
     val feedbackByTitleId = feedbackEntries.associate { it.titleId to it.value }
     val enabledProviderIds = subscriptions.filter { it.enabled }.map { it.providerId }.toSet()
     val providerSignature = providers.map { it.id to it.tmdbProviderId }
+    val genreSignature = genres.map { genre -> genre.id to genre.name }
 
     var destination by remember { mutableStateOf(Destination.Home) }
     var selectedTitle by remember { mutableStateOf<Title?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var parentalSearchQuery by remember { mutableStateOf("") }
+    var browseMediaFilter by remember { mutableStateOf(BrowseMediaFilter.All) }
+    var browseGenreId by remember { mutableStateOf<Int?>(null) }
+    var browseSort by remember { mutableStateOf(BrowseSort.Title) }
 
     fun completeParentAction(action: ParentAction) {
         when (action) {
@@ -367,11 +383,31 @@ private fun CouchIndexApp() {
         providerDirectoryReady = true
     }
 
+    LaunchedEffect(appConfig.hasTmdbReadAccessToken) {
+        if (!appConfig.hasTmdbReadAccessToken) {
+            genres = SampleCatalogue.genres
+            genreDirectoryReady = true
+            return@LaunchedEffect
+        }
+
+        genreDirectoryReady = false
+        runCatching { genreDirectory.fetchGenres() }
+            .onSuccess { discoveredGenres ->
+                if (discoveredGenres.isNotEmpty()) genres = discoveredGenres
+            }
+            .onFailure {
+                genres = cachedSnapshot?.genres?.takeIf { cached -> cached.isNotEmpty() } ?: SampleCatalogue.genres
+            }
+        genreDirectoryReady = true
+    }
+
     LaunchedEffect(
         appConfig.hasTmdbReadAccessToken,
         providerDirectoryReady,
+        genreDirectoryReady,
         enabledProviderIds,
         providerSignature,
+        genreSignature,
     ) {
         if (!appConfig.hasTmdbReadAccessToken) {
             catalogue = SampleCatalogue.titles
@@ -379,7 +415,7 @@ private fun CouchIndexApp() {
             return@LaunchedEffect
         }
 
-        if (!providerDirectoryReady) return@LaunchedEffect
+        if (!providerDirectoryReady || !genreDirectoryReady) return@LaunchedEffect
 
         if (enabledProviderIds.isEmpty()) {
             catalogue = emptyList()
@@ -408,6 +444,7 @@ private fun CouchIndexApp() {
                 savedAtEpochMillis = System.currentTimeMillis(),
                 providers = providers,
                 titles = discoveredTitles,
+                genres = genres,
             )
             cachedSnapshot = snapshot
             withContext(Dispatchers.IO) {
@@ -426,6 +463,7 @@ private fun CouchIndexApp() {
             } else {
                 catalogue = cached.titles
                 providers = cached.providers
+                genres = cached.genres
                 catalogueStatus = cached.toCatalogueStatus(
                     nowEpochMillis = System.currentTimeMillis(),
                     prefix = "Refresh failed",
@@ -477,11 +515,15 @@ private fun CouchIndexApp() {
                 kidsSettings = kidsSettings,
                 catalogue = catalogue,
                 kidsOverrides = kidsOverrides,
+                genres = genres,
                 providers = providers,
                 subscriptions = subscriptions,
                 selectedTitle = selectedTitle,
                 searchQuery = searchQuery,
                 parentalSearchQuery = parentalSearchQuery,
+                browseMediaFilter = browseMediaFilter,
+                browseGenreId = browseGenreId,
+                browseSort = browseSort,
                 watchlistedTitleIds = watchlistedTitleIds,
                 watchedTitleIds = watchedTitleIds,
                 recentTitleIds = recentTitleIds,
@@ -489,6 +531,24 @@ private fun CouchIndexApp() {
                 onTitleSelected = { selectedTitle = it },
                 onSearchQueryChange = { searchQuery = it },
                 onParentalSearchQueryChange = { parentalSearchQuery = it },
+                onBrowseMediaFilterChange = { filter ->
+                    browseMediaFilter = filter
+                    val selectedGenre = genres.firstOrNull { it.id == browseGenreId }
+                    val selectedKind = when (filter) {
+                        BrowseMediaFilter.All -> null
+                        BrowseMediaFilter.Movies -> MediaKind.Movie
+                        BrowseMediaFilter.Series -> MediaKind.Series
+                    }
+                    if (
+                        browseGenreId != null &&
+                        selectedKind != null &&
+                        selectedGenre?.mediaKinds?.contains(selectedKind) != true
+                    ) {
+                        browseGenreId = null
+                    }
+                },
+                onBrowseGenreChange = { browseGenreId = it },
+                onBrowseSortChange = { browseSort = it },
                 resolveLaunchTarget = providerLauncher::resolve,
                 onLaunchTargetSelected = { title, target ->
                     when (providerLauncher.launch(target)) {
@@ -691,11 +751,15 @@ private fun MainSurface(
     kidsSettings: KidsSettings,
     catalogue: List<Title>,
     kidsOverrides: List<KidsCatalogueOverride>,
+    genres: List<Genre>,
     providers: List<Provider>,
     subscriptions: List<Subscription>,
     selectedTitle: Title?,
     searchQuery: String,
     parentalSearchQuery: String,
+    browseMediaFilter: BrowseMediaFilter,
+    browseGenreId: Int?,
+    browseSort: BrowseSort,
     watchlistedTitleIds: Set<TitleId>,
     watchedTitleIds: Set<TitleId>,
     recentTitleIds: Set<TitleId>,
@@ -703,6 +767,9 @@ private fun MainSurface(
     onTitleSelected: (Title) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onParentalSearchQueryChange: (String) -> Unit,
+    onBrowseMediaFilterChange: (BrowseMediaFilter) -> Unit,
+    onBrowseGenreChange: (Int?) -> Unit,
+    onBrowseSortChange: (BrowseSort) -> Unit,
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onSubscriptionToggle: (String) -> Unit,
@@ -739,7 +806,14 @@ private fun MainSurface(
 
                 Destination.Browse -> BrowseScreen(
                     rows = rows,
+                    genres = genres,
+                    mediaFilter = browseMediaFilter,
+                    genreId = browseGenreId,
+                    sort = browseSort,
                     providers = providers,
+                    onMediaFilterChange = onBrowseMediaFilterChange,
+                    onGenreChange = onBrowseGenreChange,
+                    onSortChange = onBrowseSortChange,
                     onTitleSelected = onTitleSelected,
                 )
 
@@ -958,24 +1032,100 @@ private fun HomeScreen(
 @Composable
 private fun BrowseScreen(
     rows: List<BrowseRow>,
+    genres: List<Genre>,
+    mediaFilter: BrowseMediaFilter,
+    genreId: Int?,
+    sort: BrowseSort,
     providers: List<Provider>,
+    onMediaFilterChange: (BrowseMediaFilter) -> Unit,
+    onGenreChange: (Int?) -> Unit,
+    onSortChange: (BrowseSort) -> Unit,
     onTitleSelected: (Title) -> Unit,
 ) {
-    val titles = rows
+    val browseCatalogue = remember { BrowseCatalogue() }
+    val sourceTitles = rows
         .flatMap { it.titles }
         .distinctBy { it.id }
-        .sortedWith(compareBy<Title> { it.mediaKind.name }.thenBy { it.name })
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        items(titles, key = { "${it.id.mediaKind}-${it.id.tmdbId}" }) { title ->
-            BrowseListItem(
-                title = title,
-                providers = providers,
-                onTitleSelected = onTitleSelected,
+    val titles by remember(sourceTitles, mediaFilter, genreId, sort) {
+        derivedStateOf {
+            browseCatalogue.invoke(
+                sourceTitles,
+                BrowseCatalogueQuery(mediaFilter = mediaFilter, genreId = genreId, sort = sort),
             )
+        }
+    }
+    val selectedKind = when (mediaFilter) {
+        BrowseMediaFilter.All -> null
+        BrowseMediaFilter.Movies -> MediaKind.Movie
+        BrowseMediaFilter.Series -> MediaKind.Series
+    }
+    val availableGenres = genres.filter { genre ->
+        (selectedKind == null || selectedKind in genre.mediaKinds) && sourceTitles.any { genre.id in it.genreIds }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(BrowseMediaFilter.entries, key = { it.name }) { filter ->
+                FocusButton(
+                    label = filter.label,
+                    selected = filter == mediaFilter,
+                    modifier = Modifier.width(100.dp),
+                    onClick = { onMediaFilterChange(filter) },
+                )
+            }
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                FocusButton(
+                    label = "All genres",
+                    selected = genreId == null,
+                    modifier = Modifier.width(160.dp),
+                    onClick = { onGenreChange(null) },
+                )
+            }
+            items(availableGenres, key = { it.id }) { genre ->
+                FocusButton(
+                    label = genre.name,
+                    selected = genre.id == genreId,
+                    modifier = Modifier.width(180.dp),
+                    onClick = { onGenreChange(genre.id) },
+                )
+            }
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(BrowseSort.entries, key = { it.name }) { option ->
+                FocusButton(
+                    label = option.label,
+                    selected = option == sort,
+                    modifier = Modifier.width(110.dp),
+                    onClick = { onSortChange(option) },
+                )
+            }
+        }
+        BasicText(
+            text = if (titles.size == 1) "1 title" else "${titles.size} titles",
+            modifier = Modifier.height(20.dp),
+            style = TextStyle(color = Color(0xFF8FA0A5), fontSize = 13.sp),
+        )
+        if (titles.isEmpty()) {
+            EmptyRow(label = "No titles in this category")
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(titles, key = { "${it.id.mediaKind}-${it.id.tmdbId}" }) { title ->
+                    BrowseListItem(
+                        title = title,
+                        providers = providers,
+                        ratingSource = sort.ratingSource,
+                        onTitleSelected = onTitleSelected,
+                    )
+                }
+            }
         }
     }
 }
@@ -1284,6 +1434,7 @@ private fun TitleCard(
 private fun BrowseListItem(
     title: Title,
     providers: List<Provider>,
+    ratingSource: String? = null,
     onTitleSelected: (Title) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -1332,8 +1483,13 @@ private fun BrowseListItem(
                 style = TextStyle(color = Color(0xFFA8B3B7), fontSize = 13.sp),
             )
         }
+        val displayedRating = ratingSource?.let { source ->
+            title.ratings.firstOrNull { it.source.equals(source, ignoreCase = true) }
+        } ?: title.ratings.firstOrNull()
         BasicText(
-            text = title.ratings.firstOrNull()?.display() ?: "",
+            text = displayedRating?.let { rating ->
+                if (ratingSource == null) rating.display() else "${rating.source} ${rating.display()}"
+            }.orEmpty(),
             style = TextStyle(color = Color(0xFFE8C468), fontSize = 16.sp, fontWeight = FontWeight.Bold),
         )
     }
@@ -1816,6 +1972,28 @@ private val MediaKind.label: String
     get() = when (this) {
         MediaKind.Movie -> "Movie"
         MediaKind.Series -> "Series"
+    }
+
+private val BrowseMediaFilter.label: String
+    get() = when (this) {
+        BrowseMediaFilter.All -> "All"
+        BrowseMediaFilter.Movies -> "Movies"
+        BrowseMediaFilter.Series -> "Series"
+    }
+
+private val BrowseSort.label: String
+    get() = when (this) {
+        BrowseSort.Title -> "Title"
+        BrowseSort.Newest -> "Newest"
+        BrowseSort.ImdbRating -> "IMDb rating"
+        BrowseSort.TmdbRating -> "TMDb rating"
+    }
+
+private val BrowseSort.ratingSource: String?
+    get() = when (this) {
+        BrowseSort.ImdbRating -> "IMDb"
+        BrowseSort.TmdbRating -> "TMDb"
+        else -> null
     }
 
 private fun ParentAction.parentPinMessage(maximumAge: Int): String = when (this) {

@@ -93,6 +93,7 @@ class TmdbCatalogueRepository(
                     id = titleId,
                     name = item.name,
                     year = item.year,
+                    releaseDate = item.releaseDate,
                     mediaKind = item.mediaKind,
                     runtimeMinutes = null,
                     synopsis = item.overview,

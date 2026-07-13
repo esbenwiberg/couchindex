@@ -110,6 +110,12 @@ data class ContentCertification(
     val minimumAge: Int,
 )
 
+data class Genre(
+    val id: Int,
+    val name: String,
+    val mediaKinds: Set<MediaKind>,
+)
+
 data class Title(
     val id: TitleId,
     val name: String,
@@ -120,6 +126,7 @@ data class Title(
     val offers: List<Offer>,
     val ratings: List<Rating>,
     val launchTargets: List<LaunchTarget>,
+    val releaseDate: String? = null,
     val isNewOnService: Boolean = false,
     val isHiddenGem: Boolean = false,
     val externalIds: Map<String, String> = emptyMap(),
