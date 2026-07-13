@@ -48,6 +48,18 @@ Run the local TV smoke check:
 
 Smoke screenshots are written under `build/tv-smoke/`, which is ignored by git.
 
+## Catalogue cache
+
+The last successful live provider directory and enriched catalogue are stored atomically in the app-private file
+`files/catalogue-snapshot-v1.json`. A debug emulator can verify it after a successful refresh with:
+
+```sh
+/Users/ewi/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell \
+  run-as com.couchindex.app ls -l files/catalogue-snapshot-v1.json
+```
+
+Malformed snapshots and unsupported versions are ignored. Cached data is labeled stale after 24 hours.
+
 ## D-pad input
 
 The emulator's Extended Controls directional pad can be inconsistent on macOS. The

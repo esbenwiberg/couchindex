@@ -46,6 +46,14 @@
 - [x] Feedback-driven For You row across enabled subscriptions
 - [x] Disliked-genre suppression and reversible feedback
 
+## Milestone 7: offline reliability
+
+- [x] Atomic, versioned provider and catalogue snapshots
+- [x] Immediate cached startup with background refresh
+- [x] Cached catalogue retention after refresh failure
+- [x] Cache age with explicit Cached and Stale states
+- [x] Corrupt, unsupported and stale snapshot tests
+
 ## Later investigations
 
 - [x] Media-session playback observation feasibility

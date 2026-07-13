@@ -32,4 +32,16 @@ class CatalogueSnapshotCodecTest {
         assertEquals(CacheFreshness.Cached, snapshot.freshness(snapshot.savedAtEpochMillis + 23 * 60 * 60_000))
         assertEquals(CacheFreshness.Stale, snapshot.freshness(snapshot.savedAtEpochMillis + 24 * 60 * 60_000))
     }
+
+    @Test
+    fun `builds explicit cached and stale refresh failure statuses`() {
+        val cached = snapshot.cacheStatus(snapshot.savedAtEpochMillis + 30 * 60_000, "Refresh failed")
+        val stale = snapshot.cacheStatus(snapshot.savedAtEpochMillis + 2 * 24 * 60 * 60_000, "Refresh failed")
+
+        assertEquals("Refresh failed; 6 cached titles - 30 min ago", cached.detail)
+        assertEquals("Cached", cached.badge)
+        assertEquals(true, cached.highlighted)
+        assertEquals("Stale", stale.badge)
+        assertEquals(false, stale.highlighted)
+    }
 }

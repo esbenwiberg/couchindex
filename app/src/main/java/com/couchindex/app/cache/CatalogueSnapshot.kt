@@ -15,6 +15,12 @@ enum class CacheFreshness {
     Stale,
 }
 
+data class CatalogueCacheStatus(
+    val detail: String,
+    val badge: String,
+    val highlighted: Boolean,
+)
+
 fun CatalogueSnapshot.freshness(
     nowEpochMillis: Long,
     staleAfterMillis: Long = DEFAULT_STALE_AFTER_MILLIS,
@@ -30,6 +36,19 @@ fun CatalogueSnapshot.ageLabel(nowEpochMillis: Long): String {
         minutes < 1_440 -> "${minutes / 60} hr ago"
         else -> "${minutes / 1_440} days ago"
     }
+}
+
+fun CatalogueSnapshot.cacheStatus(
+    nowEpochMillis: Long,
+    prefix: String? = null,
+): CatalogueCacheStatus {
+    val freshness = freshness(nowEpochMillis)
+    val cacheDetail = "${titles.size} cached titles - ${ageLabel(nowEpochMillis)}"
+    return CatalogueCacheStatus(
+        detail = listOfNotNull(prefix, cacheDetail).joinToString("; "),
+        badge = freshness.name,
+        highlighted = freshness == CacheFreshness.Cached,
+    )
 }
 
 private const val DEFAULT_STALE_AFTER_MILLIS = 24L * 60L * 60L * 1_000L

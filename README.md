@@ -99,7 +99,7 @@ For Google Play preparation, see [docs/release.md](docs/release.md).
 Milestone 1 is complete. Milestone 2 now discovers the Danish provider directory and subscription
 catalogues from TMDb when a token is configured, merges per-provider availability by canonical
 title identity, and falls back to four starter providers plus sample titles when configuration or
-connectivity is unavailable. Provider launches now resolve to an installed TV app, a title watch
+connectivity is unavailable and no valid cache exists. Provider launches now resolve to an installed TV app, a title watch
 page or an install page, and successful content handoffs feed persistent Continue Watching state.
 Milestone 3 now also includes a persistent local watchlist surfaced directly after Continue Watching,
 manual removal from Continue Watching and independent watched history.
@@ -111,3 +111,5 @@ plus movie and series runtime metadata loaded during the existing title-details 
 Milestone 5 is complete with a single search surface across the merged catalogues of every enabled subscription.
 Milestone 6 adds private, persistent Like and Dislike feedback plus a local For You row ranked from TMDb genre overlap.
 The post-V1 platform and integration investigations are documented without adding privileged permissions or unverified provider behavior.
+Milestone 7 completes the local-first startup path with atomic catalogue snapshots, background refresh, cached failure fallback,
+and visible cache age and staleness.

@@ -24,6 +24,7 @@ CouchIndex is designed for a television, remote control and viewing distance rat
 - Marking a title watched removes it from Continue Watching without changing its watchlist membership.
 - Marking a title unwatched does not add it back to Continue Watching without a new provider launch.
 - Missing data is omitted rather than displayed as zero or an empty badge.
+- Cached and stale catalogue states remain navigable and disclose cache age in Settings.
 
 ## Continue Watching
 

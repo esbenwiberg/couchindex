@@ -34,7 +34,11 @@ availability and third-party ratings.
 
 ## Runtime behavior
 
-Browse and search prefer locally cached data. Background refreshes update metadata and availability. Selecting a provider resolves a launch target and hands control to the installed provider app.
+Browse and search initialize from the last valid provider and catalogue snapshot. Background refreshes update
+metadata and availability without clearing cached rows. A successful refresh atomically replaces the versioned
+snapshot. A failed refresh retains cached data and exposes its age; snapshots become stale after 24 hours.
+Sample data is used only when no valid snapshot exists. Selecting a provider resolves a launch target and hands
+control to the installed provider app.
 
 ## Security
 
