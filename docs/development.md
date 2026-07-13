@@ -56,26 +56,37 @@ Build, test, lint and inspect an unsigned local Android App Bundle with:
 ./scripts/validate-release.sh
 ```
 
-Release signing is optional for local validation. Before a Play upload, create a
-recoverable upload key and provide all four values through ignored `local.properties`
-entries or environment variables:
+Release signing is optional for local validation. Create the upload key once with:
 
-```properties
-COUCHINDEX_UPLOAD_STORE_FILE=/absolute/path/to/couchindex-upload.jks
-COUCHINDEX_UPLOAD_STORE_PASSWORD=your_store_password
-COUCHINDEX_UPLOAD_KEY_ALIAS=couchindex-upload
-COUCHINDEX_UPLOAD_KEY_PASSWORD=your_key_password
+```sh
+./scripts/create-upload-key.sh
 ```
 
-Then enforce signature verification:
+The script creates `~/.android/couchindex/couchindex-upload.p12` with restrictive file
+permissions and stores its generated password in macOS Keychain under the service
+`com.couchindex.upload-keystore`. It refuses to replace either an existing keystore or
+an existing Keychain credential. The key is valid through 2053-11-28.
+
+Signed validation reads that Keychain item automatically:
 
 ```sh
 ./scripts/validate-release.sh --require-signed
 ```
 
+For a different signing environment, provide all four values through environment
+variables or ignored `local.properties` entries:
+
+```properties
+COUCHINDEX_UPLOAD_STORE_FILE=/absolute/path/to/couchindex-upload.p12
+COUCHINDEX_UPLOAD_STORE_PASSWORD=your_store_password
+COUCHINDEX_UPLOAD_KEY_ALIAS=couchindex-upload
+COUCHINDEX_UPLOAD_KEY_PASSWORD=your_key_password
+```
+
 The release bundle is written to
 `app/build/outputs/bundle/release/app-release.aab`. Never commit a keystore or its
-credentials.
+credentials. Back up both the keystore and its Keychain password in separate secure,
+recoverable locations before the first Play upload.
 
 Capture the four Android TV listing surfaces after emulator validation with:
 

@@ -35,6 +35,22 @@ done
 require_file "$REPO_ROOT/gradlew"
 require_executable "$JAVA_HOME/bin/jarsigner"
 
+if (( require_signed )) &&
+  [[ -z "${COUCHINDEX_UPLOAD_STORE_FILE:-}" ]] &&
+  [[ -z "${COUCHINDEX_UPLOAD_STORE_PASSWORD:-}" ]] &&
+  [[ -z "${COUCHINDEX_UPLOAD_KEY_ALIAS:-}" ]] &&
+  [[ -z "${COUCHINDEX_UPLOAD_KEY_PASSWORD:-}" ]]; then
+  require_executable /usr/bin/security
+  keychain_service="com.couchindex.upload-keystore"
+  key_alias="couchindex-upload"
+  keychain_password="$(/usr/bin/security find-generic-password -a "$key_alias" -s "$keychain_service" -w)"
+  export COUCHINDEX_UPLOAD_STORE_FILE="$HOME/.android/couchindex/couchindex-upload.p12"
+  export COUCHINDEX_UPLOAD_STORE_PASSWORD="$keychain_password"
+  export COUCHINDEX_UPLOAD_KEY_ALIAS="$key_alias"
+  export COUCHINDEX_UPLOAD_KEY_PASSWORD="$keychain_password"
+  unset keychain_password
+fi
+
 "$REPO_ROOT/gradlew" \
   :core:test \
   :app:test \

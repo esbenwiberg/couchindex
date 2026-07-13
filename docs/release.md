@@ -14,7 +14,7 @@ Audited on 2026-07-13 against the current Android and Play documentation.
 | SDK compatibility | `minSdk 28`, `targetSdk 37` | Ready. Current TV submissions require target API 34 or newer and common-device support requires minimum API 31 or lower. |
 | TV manifest | Leanback required, touchscreen optional, landscape launcher activity | Ready. Preserve the TV-only form-factor declarations. |
 | Launcher assets | Scalable icon and 320x180 raster banner containing `CouchIndex` | Ready for emulator and physical-launcher review. |
-| Release artifact | The validator builds and inspects an unsigned 7.2 MB AAB | Configure a recoverable upload key and rerun with `--require-signed` before upload. |
+| Release artifact | The validator builds and cryptographically verifies a signed 7.2 MB AAB | Ready after the upload key is backed up in separate secure storage. |
 | Native compatibility | `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64` are packaged | Retain 64-bit support and verify 16 KB page compatibility when native dependencies change. |
 | Personal data | Subscriptions, feedback, history and catalogue cache remain on device and are excluded from backup and transfer | Ready. Revisit only if explicit synchronization is introduced. |
 | Network data | TMDb catalogue requests and IMDb dataset downloads only | Document declarations and publish a privacy policy before closed or production testing. |
@@ -33,6 +33,19 @@ Local release validation is automated by `scripts/validate-release.sh`. The defa
 mode accepts an unsigned artifact; `--require-signed` is mandatory before a Play upload.
 Signing configuration uses the four `COUCHINDEX_UPLOAD_*` values documented in
 `docs/development.md` and fails configuration when only a partial set is supplied.
+On macOS, `scripts/create-upload-key.sh` creates the default upload key and stores its
+generated password in Keychain; signed validation loads it without writing the secret
+to the repository or build logs.
+
+The current upload certificate uses alias `couchindex-upload`, expires on 2053-11-28,
+and has SHA-256 fingerprint:
+
+```text
+A6:07:64:59:FE:41:DC:A0:99:E6:7B:C4:B1:DD:39:B2:B3:49:EB:DB:E1:15:A0:16:11:F3:2F:24:B4:AE:27:6C
+```
+
+The fingerprint is public release metadata. The keystore and Keychain password are the
+private recovery materials and must never be committed.
 
 The TMDb API read token is application-level authentication and is compiled into the
 client artifact. It must remain read-only; no TMDb user token or other account secret
