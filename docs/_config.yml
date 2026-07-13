@@ -1,3 +1,5 @@
 title: CouchIndex
 description: Privacy and release information for CouchIndex
 theme: minima
+header_pages:
+  - privacy.md
