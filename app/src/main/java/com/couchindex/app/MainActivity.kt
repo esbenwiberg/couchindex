@@ -62,6 +62,9 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.couchindex.app.config.AppConfig
 import com.couchindex.app.config.AppConfigLoader
+import com.couchindex.app.cache.CatalogueCacheStore
+import com.couchindex.app.cache.CatalogueSnapshot
+import com.couchindex.app.cache.cacheStatus
 import com.couchindex.app.launch.AndroidProviderLauncher
 import com.couchindex.app.launch.ProviderLaunchResult
 import com.couchindex.app.launch.RecentLaunchStore
@@ -86,6 +89,8 @@ import com.couchindex.core.SearchCatalogue
 import com.couchindex.core.Subscription
 import com.couchindex.core.Title
 import com.couchindex.core.TitleId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -112,7 +117,10 @@ private data class CatalogueStatus(
         get() = when (badge) {
             "Live" -> "DK catalogue live"
             "Loading" -> "DK catalogue loading"
+            "Cached" -> "DK catalogue cached"
+            "Stale" -> "DK catalogue stale"
             "Offline" -> "DK catalogue offline"
+            "Ready" -> "DK catalogue ready"
             else -> "DK catalogue sample"
         }
 }
@@ -122,6 +130,14 @@ private fun CouchIndexApp() {
     val rowBuilder = remember { BuildHomeRows() }
     val context = LocalContext.current
     val appConfig = remember { AppConfigLoader.load() }
+    val catalogueCacheStore = remember(context) { CatalogueCacheStore(context) }
+    var cachedSnapshot by remember(appConfig.hasTmdbReadAccessToken) {
+        mutableStateOf(
+            catalogueCacheStore.load()
+                ?.takeIf { appConfig.hasTmdbReadAccessToken && it.region == DEFAULT_REGION },
+        )
+    }
+    val initialProviders = cachedSnapshot?.providers ?: SampleCatalogue.providers
     val providerLauncher = remember(context) { AndroidProviderLauncher(context) }
     val imdbRatingAdapter = remember(context) { ImdbDatasetRatingAdapter(context) }
     val recentLaunchStore = remember(context) { RecentLaunchStore(context) }
@@ -133,10 +149,16 @@ private fun CouchIndexApp() {
     val providerDirectory = remember(tmdbClient) {
         TmdbProviderDirectory(source = tmdbClient, fallbackProviders = SampleCatalogue.providers)
     }
-    var providers by remember { mutableStateOf(SampleCatalogue.providers) }
-    var providerDirectoryReady by remember { mutableStateOf(!appConfig.hasTmdbReadAccessToken) }
+    var providers by remember { mutableStateOf(initialProviders) }
+    var providerDirectoryReady by remember {
+        mutableStateOf(!appConfig.hasTmdbReadAccessToken || cachedSnapshot != null)
+    }
     val subscriptions = remember {
-        mutableStateListOf(*subscriptionStore.load(SampleCatalogue.subscriptions).toTypedArray())
+        val sampleDefaults = SampleCatalogue.subscriptions.associate { it.providerId to it.enabled }
+        val defaults = initialProviders.map { provider ->
+            Subscription(provider.id, sampleDefaults[provider.id] ?: false)
+        }
+        mutableStateListOf(*subscriptionStore.load(defaults).toTypedArray())
     }
     val recentLaunches = remember {
         val initial = if (appConfig.hasTmdbReadAccessToken) recentLaunchStore.load() else SampleCatalogue.recentLaunches
@@ -151,14 +173,15 @@ private fun CouchIndexApp() {
     val feedbackEntries = remember {
         mutableStateListOf(*feedbackStore.load().toTypedArray())
     }
-    var catalogue by remember { mutableStateOf(SampleCatalogue.titles) }
+    var catalogue by remember { mutableStateOf(cachedSnapshot?.titles ?: SampleCatalogue.titles) }
     var catalogueStatus by remember {
         mutableStateOf(
-            CatalogueStatus(
-                detail = "Using sample catalogue",
-                badge = "Local",
-                highlighted = false,
-            ),
+            cachedSnapshot?.toCatalogueStatus(System.currentTimeMillis())
+                ?: CatalogueStatus(
+                    detail = "Using sample catalogue",
+                    badge = "Local",
+                    highlighted = false,
+                ),
         )
     }
     val rows by remember {
@@ -191,8 +214,11 @@ private fun CouchIndexApp() {
         }
 
         providerDirectoryReady = false
-        catalogueStatus = CatalogueStatus("Loading Danish provider directory", "Loading", highlighted = true)
-        runCatching { providerDirectory.fetchProviders("DK") }
+        catalogueStatus = cachedSnapshot?.toCatalogueStatus(
+            nowEpochMillis = System.currentTimeMillis(),
+            prefix = "Refreshing provider directory",
+        ) ?: CatalogueStatus("Loading Danish provider directory", "Loading", highlighted = true)
+        runCatching { providerDirectory.fetchProviders(DEFAULT_REGION) }
             .onSuccess { discoveredProviders ->
                 if (discoveredProviders.isNotEmpty()) {
                     val currentSubscriptions = subscriptions.associate { it.providerId to it.enabled }
@@ -209,7 +235,7 @@ private fun CouchIndexApp() {
                 }
             }
             .onFailure {
-                providers = SampleCatalogue.providers
+                providers = cachedSnapshot?.providers ?: SampleCatalogue.providers
             }
         providerDirectoryReady = true
     }
@@ -234,26 +260,50 @@ private fun CouchIndexApp() {
             return@LaunchedEffect
         }
 
-        catalogueStatus = CatalogueStatus("Refreshing Danish availability", "Loading", highlighted = true)
-        runCatching {
+        catalogueStatus = cachedSnapshot?.toCatalogueStatus(
+            nowEpochMillis = System.currentTimeMillis(),
+            prefix = "Refreshing Danish availability",
+        ) ?: CatalogueStatus("Refreshing Danish availability", "Loading", highlighted = true)
+        val refreshResult = runCatching {
             TmdbCatalogueRepository(
                 source = tmdbClient,
                 providers = providers,
                 batchRatingAdapters = listOf(imdbRatingAdapter),
             ).discoverSubscriptionTitles(
-                region = "DK",
+                region = DEFAULT_REGION,
                 providerIds = enabledProviderIds,
             )
-        }.onSuccess { discoveredTitles ->
+        }
+        refreshResult.onSuccess { discoveredTitles ->
             catalogue = discoveredTitles
+            val snapshot = CatalogueSnapshot(
+                region = DEFAULT_REGION,
+                savedAtEpochMillis = System.currentTimeMillis(),
+                providers = providers,
+                titles = discoveredTitles,
+            )
+            cachedSnapshot = snapshot
+            withContext(Dispatchers.IO) {
+                runCatching { catalogueCacheStore.save(snapshot) }
+            }
             catalogueStatus = CatalogueStatus(
                 detail = "${discoveredTitles.size} titles - JustWatch availability",
                 badge = "Live",
                 highlighted = true,
             )
         }.onFailure {
-            catalogue = SampleCatalogue.titles
-            catalogueStatus = CatalogueStatus("Refresh failed; using sample catalogue", "Offline", highlighted = false)
+            val cached = cachedSnapshot
+            if (cached == null) {
+                catalogue = SampleCatalogue.titles
+                catalogueStatus = CatalogueStatus("Refresh failed; using sample catalogue", "Offline", highlighted = false)
+            } else {
+                catalogue = cached.titles
+                providers = cached.providers
+                catalogueStatus = cached.toCatalogueStatus(
+                    nowEpochMillis = System.currentTimeMillis(),
+                    prefix = "Refresh failed",
+                )
+            }
         }
     }
 
@@ -350,6 +400,20 @@ private fun CouchIndexApp() {
         }
     }
 }
+
+private fun CatalogueSnapshot.toCatalogueStatus(
+    nowEpochMillis: Long,
+    prefix: String? = null,
+): CatalogueStatus {
+    val status = cacheStatus(nowEpochMillis, prefix)
+    return CatalogueStatus(
+        detail = status.detail,
+        badge = status.badge,
+        highlighted = status.highlighted,
+    )
+}
+
+private const val DEFAULT_REGION = "DK"
 
 @Composable
 private fun DestinationRail(
