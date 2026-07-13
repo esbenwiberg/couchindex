@@ -74,6 +74,8 @@ import com.couchindex.app.launch.RecentLaunchStore
 import com.couchindex.app.launch.ResolvedProviderLaunch
 import com.couchindex.app.ratings.ImdbDatasetRatingAdapter
 import com.couchindex.app.settings.SubscriptionStore
+import com.couchindex.app.settings.KidsSettings
+import com.couchindex.app.settings.KidsSettingsStore
 import com.couchindex.app.state.FeedbackStore
 import com.couchindex.app.state.WatchedStore
 import com.couchindex.app.state.WatchlistStore
@@ -84,6 +86,7 @@ import com.couchindex.core.BrowseRow
 import com.couchindex.core.BuildHomeRows
 import com.couchindex.core.FeedbackValue
 import com.couchindex.core.LaunchTarget
+import com.couchindex.core.KidsEligibilityPolicy
 import com.couchindex.core.MediaKind
 import com.couchindex.core.Provider
 import com.couchindex.core.Rating
@@ -92,6 +95,7 @@ import com.couchindex.core.SearchCatalogue
 import com.couchindex.core.Subscription
 import com.couchindex.core.Title
 import com.couchindex.core.TitleId
+import com.couchindex.core.ViewerProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -109,6 +113,29 @@ private enum class Destination(val label: String) {
     Browse("Browse"),
     Search("Search"),
     Settings("Settings"),
+}
+
+private sealed interface ParentAction {
+    data object EnterKids : ParentAction
+    data object ExitKids : ParentAction
+    data object ToggleStartInKids : ParentAction
+    data class SetMaximumAge(val age: Int) : ParentAction
+}
+
+private sealed interface PinFlow {
+    val action: ParentAction
+    val error: String?
+
+    data class Setup(
+        override val action: ParentAction,
+        val firstPin: String? = null,
+        override val error: String? = null,
+    ) : PinFlow
+
+    data class Verify(
+        override val action: ParentAction,
+        override val error: String? = null,
+    ) : PinFlow
 }
 
 private data class CatalogueStatus(
@@ -131,8 +158,13 @@ private data class CatalogueStatus(
 @Composable
 private fun CouchIndexApp() {
     val rowBuilder = remember { BuildHomeRows() }
+    val kidsEligibilityPolicy = remember { KidsEligibilityPolicy() }
     val context = LocalContext.current
     val appConfig = remember { AppConfigLoader.load() }
+    val kidsSettingsStore = remember(context) { KidsSettingsStore(context) }
+    var kidsSettings by remember { mutableStateOf(kidsSettingsStore.load()) }
+    var viewerProfile by remember { mutableStateOf(kidsSettingsStore.initialProfile()) }
+    var pinFlow by remember { mutableStateOf<PinFlow?>(null) }
     val catalogueCacheStore = remember(context) { CatalogueCacheStore(context) }
     var cachedSnapshot by remember(appConfig.hasTmdbReadAccessToken) {
         mutableStateOf(
@@ -143,11 +175,11 @@ private fun CouchIndexApp() {
     val initialProviders = cachedSnapshot?.providers ?: SampleCatalogue.providers
     val providerLauncher = remember(context) { AndroidProviderLauncher(context) }
     val imdbRatingAdapter = remember(context) { ImdbDatasetRatingAdapter(context) }
-    val recentLaunchStore = remember(context) { RecentLaunchStore(context) }
-    val feedbackStore = remember(context) { FeedbackStore(context) }
+    val recentLaunchStore = remember(context, viewerProfile) { RecentLaunchStore(context, viewerProfile) }
+    val feedbackStore = remember(context, viewerProfile) { FeedbackStore(context, viewerProfile) }
     val subscriptionStore = remember(context) { SubscriptionStore(context) }
-    val watchedStore = remember(context) { WatchedStore(context) }
-    val watchlistStore = remember(context) { WatchlistStore(context) }
+    val watchedStore = remember(context, viewerProfile) { WatchedStore(context, viewerProfile) }
+    val watchlistStore = remember(context, viewerProfile) { WatchlistStore(context, viewerProfile) }
     val tmdbClient = remember(appConfig.tmdbReadAccessToken) { TmdbDiscoverClient(appConfig.tmdbReadAccessToken) }
     val providerDirectory = remember(tmdbClient) {
         TmdbProviderDirectory(source = tmdbClient, fallbackProviders = SampleCatalogue.providers)
@@ -163,17 +195,23 @@ private fun CouchIndexApp() {
         }
         mutableStateListOf(*subscriptionStore.load(defaults).toTypedArray())
     }
-    val recentLaunches = remember {
-        val initial = if (appConfig.hasTmdbReadAccessToken) recentLaunchStore.load() else SampleCatalogue.recentLaunches
+    val recentLaunches = remember(viewerProfile) {
+        val initial = if (appConfig.hasTmdbReadAccessToken) {
+            recentLaunchStore.load()
+        } else if (viewerProfile == ViewerProfile.Adult) {
+            SampleCatalogue.recentLaunches
+        } else {
+            emptyList()
+        }
         mutableStateListOf(*initial.toTypedArray())
     }
-    val watchlistEntries = remember {
+    val watchlistEntries = remember(viewerProfile) {
         mutableStateListOf(*watchlistStore.load().toTypedArray())
     }
-    val watchedEntries = remember {
+    val watchedEntries = remember(viewerProfile) {
         mutableStateListOf(*watchedStore.load().toTypedArray())
     }
-    val feedbackEntries = remember {
+    val feedbackEntries = remember(viewerProfile) {
         mutableStateListOf(*feedbackStore.load().toTypedArray())
     }
     var catalogue by remember { mutableStateOf(cachedSnapshot?.titles ?: SampleCatalogue.titles) }
@@ -187,10 +225,19 @@ private fun CouchIndexApp() {
                 ),
         )
     }
-    val rows by remember {
+    val visibleCatalogue by remember(viewerProfile, kidsSettings.maximumAge) {
+        derivedStateOf {
+            if (viewerProfile == ViewerProfile.Kids) {
+                kidsEligibilityPolicy.filter(catalogue, kidsSettings.maximumAge)
+            } else {
+                catalogue
+            }
+        }
+    }
+    val rows by remember(viewerProfile, kidsSettings.maximumAge) {
         derivedStateOf {
             rowBuilder.invoke(
-                catalogue = catalogue,
+                catalogue = visibleCatalogue,
                 subscriptions = subscriptions,
                 recentLaunches = recentLaunches,
                 watchlistEntries = watchlistEntries,
@@ -208,6 +255,45 @@ private fun CouchIndexApp() {
     var destination by remember { mutableStateOf(Destination.Home) }
     var selectedTitle by remember { mutableStateOf<Title?>(null) }
     var searchQuery by remember { mutableStateOf("") }
+
+    fun completeParentAction(action: ParentAction) {
+        when (action) {
+            ParentAction.EnterKids -> {
+                viewerProfile = ViewerProfile.Kids
+                destination = Destination.Home
+                selectedTitle = null
+                searchQuery = ""
+            }
+
+            ParentAction.ExitKids -> {
+                viewerProfile = ViewerProfile.Adult
+                destination = Destination.Home
+                selectedTitle = null
+                searchQuery = ""
+            }
+
+            ParentAction.ToggleStartInKids -> {
+                kidsSettingsStore.setStartInKidsMode(!kidsSettings.startInKidsMode)
+                kidsSettings = kidsSettingsStore.load()
+            }
+
+            is ParentAction.SetMaximumAge -> {
+                kidsSettingsStore.setMaximumAge(action.age)
+                kidsSettings = kidsSettingsStore.load()
+            }
+        }
+    }
+
+    fun requestParentAction(action: ParentAction, requiresPin: Boolean) {
+        pinFlow = when {
+            !kidsSettingsStore.hasPin() -> PinFlow.Setup(action)
+            requiresPin -> PinFlow.Verify(action)
+            else -> {
+                completeParentAction(action)
+                null
+            }
+        }
+    }
 
     LaunchedEffect(appConfig.hasTmdbReadAccessToken) {
         if (!appConfig.hasTmdbReadAccessToken) {
@@ -333,13 +419,24 @@ private fun CouchIndexApp() {
             DestinationRail(
                 selected = destination,
                 footerLabel = catalogueStatus.railLabel,
+                viewerProfile = viewerProfile,
                 onSelect = { destination = it },
+                onModeAction = {
+                    val action = if (viewerProfile == ViewerProfile.Adult) {
+                        ParentAction.EnterKids
+                    } else {
+                        ParentAction.ExitKids
+                    }
+                    requestParentAction(action, requiresPin = viewerProfile == ViewerProfile.Kids)
+                },
             )
             MainSurface(
                 destination = destination,
                 rows = rows,
                 appConfig = appConfig,
                 catalogueStatus = catalogueStatus,
+                viewerProfile = viewerProfile,
+                kidsSettings = kidsSettings,
                 providers = providers,
                 subscriptions = subscriptions,
                 selectedTitle = selectedTitle,
@@ -376,6 +473,12 @@ private fun CouchIndexApp() {
                         subscriptionStore.setEnabled(updated.providerId, updated.enabled)
                     }
                 },
+                onStartInKidsModeToggle = {
+                    requestParentAction(ParentAction.ToggleStartInKids, requiresPin = true)
+                },
+                onMaximumAgeSelected = { age ->
+                    requestParentAction(ParentAction.SetMaximumAge(age), requiresPin = true)
+                },
                 onPrivacyPolicySelected = {
                     runCatching {
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PrivacyPolicy.URL)))
@@ -408,6 +511,45 @@ private fun CouchIndexApp() {
                 },
             )
         }
+        pinFlow?.let { flow ->
+            ParentPinDialog(
+                title = when (flow) {
+                    is PinFlow.Setup -> if (flow.firstPin == null) "Create parent PIN" else "Confirm parent PIN"
+                    is PinFlow.Verify -> "Enter parent PIN"
+                },
+                message = when (flow) {
+                    is PinFlow.Setup -> "Use four digits. Clearing app data resets a forgotten PIN."
+                    is PinFlow.Verify -> "Parent access is required for this change."
+                },
+                error = flow.error,
+                onCancel = { pinFlow = null },
+                onSubmit = { pin ->
+                    when (flow) {
+                        is PinFlow.Setup -> {
+                            val firstPin = flow.firstPin
+                            if (firstPin == null) {
+                                pinFlow = flow.copy(firstPin = pin, error = null)
+                            } else if (firstPin == pin) {
+                                kidsSettingsStore.setPin(pin)
+                                completeParentAction(flow.action)
+                                pinFlow = null
+                            } else {
+                                pinFlow = PinFlow.Setup(flow.action, error = "PINs did not match")
+                            }
+                        }
+
+                        is PinFlow.Verify -> {
+                            if (kidsSettingsStore.verifyPin(pin)) {
+                                completeParentAction(flow.action)
+                                pinFlow = null
+                            } else {
+                                pinFlow = flow.copy(error = "Incorrect PIN")
+                            }
+                        }
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -429,7 +571,9 @@ private const val DEFAULT_REGION = "DK"
 private fun DestinationRail(
     selected: Destination,
     footerLabel: String,
+    viewerProfile: ViewerProfile,
     onSelect: (Destination) -> Unit,
+    onModeAction: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -440,7 +584,7 @@ private fun DestinationRail(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         BasicText(
-            text = "CouchIndex",
+            text = if (viewerProfile == ViewerProfile.Kids) "CouchIndex Kids" else "CouchIndex",
             style = TextStyle(
                 color = Color(0xFFF4F1E8),
                 fontSize = 23.sp,
@@ -448,17 +592,28 @@ private fun DestinationRail(
             ),
         )
         BasicText(
-            text = "personal TV index",
-            style = TextStyle(color = Color(0xFF8FA0A5), fontSize = 12.sp),
+            text = if (viewerProfile == ViewerProfile.Kids) "family catalogue" else "personal TV index",
+            style = TextStyle(
+                color = if (viewerProfile == ViewerProfile.Kids) Color(0xFF8BC7B5) else Color(0xFF8FA0A5),
+                fontSize = 12.sp,
+            ),
         )
         Spacer(modifier = Modifier.height(18.dp))
-        Destination.entries.forEach { destination ->
+        Destination.entries
+            .filter { destination -> viewerProfile == ViewerProfile.Adult || destination != Destination.Settings }
+            .forEach { destination ->
             FocusButton(
                 label = destination.label,
                 selected = selected == destination,
                 onClick = { onSelect(destination) },
             )
         }
+        Spacer(modifier = Modifier.height(10.dp))
+        FocusButton(
+            label = if (viewerProfile == ViewerProfile.Kids) "Adult mode" else "Kids mode",
+            selected = viewerProfile == ViewerProfile.Kids,
+            onClick = onModeAction,
+        )
         Spacer(modifier = Modifier.weight(1f))
         BasicText(
             text = footerLabel,
@@ -473,6 +628,8 @@ private fun MainSurface(
     rows: List<BrowseRow>,
     appConfig: AppConfig,
     catalogueStatus: CatalogueStatus,
+    viewerProfile: ViewerProfile,
+    kidsSettings: KidsSettings,
     providers: List<Provider>,
     subscriptions: List<Subscription>,
     selectedTitle: Title?,
@@ -486,6 +643,8 @@ private fun MainSurface(
     resolveLaunchTarget: (LaunchTarget?) -> ResolvedProviderLaunch,
     onLaunchTargetSelected: (Title, LaunchTarget?) -> Unit,
     onSubscriptionToggle: (String) -> Unit,
+    onStartInKidsModeToggle: () -> Unit,
+    onMaximumAgeSelected: (Int) -> Unit,
     onPrivacyPolicySelected: () -> Unit,
     onWatchlistToggle: (Title) -> Unit,
     onWatchedToggle: (Title) -> Unit,
@@ -499,7 +658,12 @@ private fun MainSurface(
         horizontalArrangement = Arrangement.spacedBy(30.dp),
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            ScreenHeader(destination = destination, subscriptions = subscriptions, providers = providers)
+            ScreenHeader(
+                destination = destination,
+                subscriptions = subscriptions,
+                providers = providers,
+                viewerProfile = viewerProfile,
+            )
             Spacer(modifier = Modifier.height(22.dp))
             when (destination) {
                 Destination.Home -> HomeScreen(
@@ -527,7 +691,10 @@ private fun MainSurface(
                     catalogueStatus = catalogueStatus,
                     providers = providers,
                     subscriptions = subscriptions,
+                    kidsSettings = kidsSettings,
                     onSubscriptionToggle = onSubscriptionToggle,
+                    onStartInKidsModeToggle = onStartInKidsModeToggle,
+                    onMaximumAgeSelected = onMaximumAgeSelected,
                     onPrivacyPolicySelected = onPrivacyPolicySelected,
                 )
             }
@@ -648,6 +815,7 @@ private fun ScreenHeader(
     destination: Destination,
     subscriptions: List<Subscription>,
     providers: List<Provider>,
+    viewerProfile: ViewerProfile,
 ) {
     val enabledProviders = subscriptions
         .filter { it.enabled }
@@ -669,7 +837,11 @@ private fun ScreenHeader(
                 ),
             )
             BasicText(
-                text = "Browse subscribed services first. Ratings stay separate.",
+                text = if (viewerProfile == ViewerProfile.Kids) {
+                    "Only parent-approved age ratings. Your activity stays separate."
+                } else {
+                    "Browse subscribed services first. Ratings stay separate."
+                },
                 style = TextStyle(color = Color(0xFFA8B3B7), fontSize = 15.sp),
             )
         }
@@ -734,13 +906,40 @@ private fun SettingsScreen(
     catalogueStatus: CatalogueStatus,
     providers: List<Provider>,
     subscriptions: List<Subscription>,
+    kidsSettings: KidsSettings,
     onSubscriptionToggle: (String) -> Unit,
+    onStartInKidsModeToggle: () -> Unit,
+    onMaximumAgeSelected: (Int) -> Unit,
     onPrivacyPolicySelected: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        item {
+            BasicText(
+                text = "Kids mode",
+                style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 22.sp, fontWeight = FontWeight.SemiBold),
+            )
+        }
+        item {
+            SettingToggle(
+                name = "Start in Kids mode",
+                detail = "Open the age-filtered profile on cold launch",
+                enabled = kidsSettings.startInKidsMode,
+                onClick = onStartInKidsModeToggle,
+            )
+        }
+        item {
+            val currentIndex = KidsSettings.SUPPORTED_AGES.indexOf(kidsSettings.maximumAge).coerceAtLeast(0)
+            val nextAge = KidsSettings.SUPPORTED_AGES[(currentIndex + 1) % KidsSettings.SUPPORTED_AGES.size]
+            FocusButton(
+                label = "Maximum age: ${kidsSettings.maximumAge}+",
+                selected = false,
+                onClick = { onMaximumAgeSelected(nextAge) },
+            )
+        }
+        item { Spacer(modifier = Modifier.height(12.dp)) }
         item {
             BasicText(
                 text = "About",
@@ -1163,6 +1362,46 @@ private fun ProviderToggle(
 }
 
 @Composable
+private fun SettingToggle(
+    name: String,
+    detail: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(8.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(74.dp)
+            .onFocusChanged { focused = it.isFocused }
+            .clip(shape)
+            .background(if (focused) Color(0xFF232E32) else Color(0xFF151B1E))
+            .border(if (focused) 2.dp else 1.dp, if (focused) Color(0xFFE8C468) else Color(0xFF273236), shape)
+            .clickable(onClick = onClick)
+            .focusable()
+            .padding(horizontal = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            BasicText(
+                text = name,
+                style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 19.sp, fontWeight = FontWeight.SemiBold),
+            )
+            BasicText(
+                text = detail,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = TextStyle(color = Color(0xFFA8B3B7), fontSize = 13.sp),
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        TogglePill(enabled = enabled)
+    }
+}
+
+@Composable
 private fun IntegrationStatus(
     name: String,
     configured: Boolean,
@@ -1261,6 +1500,91 @@ private fun FocusButton(
             overflow = TextOverflow.Ellipsis,
             style = TextStyle(color = textColor, fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
         )
+    }
+}
+
+@Composable
+private fun ParentPinDialog(
+    title: String,
+    message: String,
+    error: String?,
+    onCancel: () -> Unit,
+    onSubmit: (String) -> Unit,
+) {
+    var pin by remember(title) { mutableStateOf("") }
+    var localError by remember(title) { mutableStateOf<String?>(null) }
+    val firstButton = remember { FocusRequester() }
+
+    LaunchedEffect(title) {
+        firstButton.requestFocus()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xE60A0C0E)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .width(430.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF151B1E))
+                .border(1.dp, Color(0xFF3A484D), RoundedCornerShape(8.dp))
+                .padding(26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            BasicText(
+                text = title,
+                style = TextStyle(color = Color(0xFFF4F1E8), fontSize = 24.sp, fontWeight = FontWeight.Bold),
+            )
+            BasicText(
+                text = message,
+                style = TextStyle(color = Color(0xFFA8B3B7), fontSize = 14.sp),
+            )
+            BasicText(
+                text = (0 until 4).joinToString("  ") { index -> if (index < pin.length) "*" else "-" },
+                style = TextStyle(color = Color(0xFFE8C468), fontSize = 28.sp, fontWeight = FontWeight.Bold),
+            )
+            (listOf("1", "2", "3", "4", "5", "6", "7", "8", "9") + listOf("Clear", "0", "OK"))
+                .chunked(3)
+                .forEachIndexed { rowIndex, row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        row.forEachIndexed { columnIndex, label ->
+                            val buttonModifier = if (rowIndex == 0 && columnIndex == 0) {
+                                Modifier.width(112.dp).focusRequester(firstButton)
+                            } else {
+                                Modifier.width(112.dp)
+                            }
+                            FocusButton(
+                                label = label,
+                                selected = false,
+                                modifier = buttonModifier,
+                                onClick = {
+                                    localError = null
+                                    when (label) {
+                                        "Clear" -> pin = ""
+                                        "OK" -> if (pin.length == 4) onSubmit(pin) else localError = "Enter four digits"
+                                        else -> if (pin.length < 4) pin += label
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+            BasicText(
+                text = localError ?: error.orEmpty(),
+                modifier = Modifier.height(20.dp),
+                style = TextStyle(color = Color(0xFFE18B78), fontSize = 13.sp),
+            )
+            FocusButton(
+                label = "Cancel",
+                selected = false,
+                modifier = Modifier.width(356.dp),
+                onClick = onCancel,
+            )
+        }
     }
 }
 

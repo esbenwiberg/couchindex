@@ -60,6 +60,7 @@ object SampleCatalogue {
             launchTargets = launchTargets("netflix", "max"),
             isNewOnService = true,
             genreIds = setOf(878, 18),
+            certification = certification(11),
         ),
         Title(
             id = TitleId(tmdbId = 1002, mediaKind = MediaKind.Series),
@@ -73,6 +74,7 @@ object SampleCatalogue {
             launchTargets = launchTargets("disney"),
             isNewOnService = true,
             genreIds = setOf(18, 35),
+            certification = certification(7),
         ),
         Title(
             id = TitleId(tmdbId = 1003, mediaKind = MediaKind.Movie),
@@ -86,6 +88,7 @@ object SampleCatalogue {
             launchTargets = launchTargets("max"),
             isHiddenGem = true,
             genreIds = setOf(9648, 18),
+            certification = certification(15),
         ),
         Title(
             id = TitleId(tmdbId = 1004, mediaKind = MediaKind.Series),
@@ -98,6 +101,7 @@ object SampleCatalogue {
             ratings = ratings(imdb = 8.1, imdbVotes = 35100, tmdb = 80.0, tmdbVotes = 4300),
             launchTargets = launchTargets("netflix"),
             genreIds = setOf(878, 18),
+            certification = certification(7),
         ),
         Title(
             id = TitleId(tmdbId = 1005, mediaKind = MediaKind.Movie),
@@ -111,6 +115,7 @@ object SampleCatalogue {
             launchTargets = launchTargets("disney", "viaplay"),
             isHiddenGem = true,
             genreIds = setOf(35, 18),
+            certification = certification(0),
         ),
         Title(
             id = TitleId(tmdbId = 1006, mediaKind = MediaKind.Movie),
@@ -124,6 +129,7 @@ object SampleCatalogue {
             launchTargets = launchTargets("viaplay"),
             isNewOnService = true,
             genreIds = setOf(99),
+            certification = certification(7),
         ),
     )
 
@@ -169,6 +175,9 @@ object SampleCatalogue {
             retrievedAt = "2026-07-11",
         ),
     )
+
+    private fun certification(minimumAge: Int): ContentCertification =
+        ContentCertification(countryCode = "DK", rating = minimumAge.toString(), minimumAge = minimumAge)
 
     private fun providerName(providerId: String): String =
         providers.first { it.id == providerId }.name

@@ -1,6 +1,7 @@
 package com.couchindex.app.tmdb
 
 import com.couchindex.core.MediaKind
+import com.couchindex.core.ContentCertification
 import com.couchindex.core.TitleId
 import java.net.HttpURLConnection
 import java.net.URL
@@ -83,10 +84,11 @@ fun interface TmdbProviderSource {
 data class TmdbTitleDetails(
     val externalIds: Map<String, String>,
     val runtimeMinutes: Int?,
+    val certification: ContentCertification?,
 )
 
 fun interface TmdbTitleDetailsSource {
-    fun fetchTitleDetails(titleId: TitleId): TmdbTitleDetails
+    fun fetchTitleDetails(titleId: TitleId, region: String): TmdbTitleDetails
 }
 
 class TmdbDiscoverClient(
@@ -135,16 +137,20 @@ class TmdbDiscoverClient(
             MediaKind.Movie -> "movie"
             MediaKind.Series -> "tv"
         }
+        val certificationPath = when (titleId.mediaKind) {
+            MediaKind.Movie -> "release_dates"
+            MediaKind.Series -> "content_ratings"
+        }
         val params = listOf(
-            "append_to_response" to "external_ids",
+            "append_to_response" to "external_ids,$certificationPath",
             "language" to "en-US",
         )
         return URL("${baseUrl.trimEnd('/')}/$mediaPath/${titleId.tmdbId}?${params.toQueryString()}")
     }
 
-    override fun fetchTitleDetails(titleId: TitleId): TmdbTitleDetails {
+    override fun fetchTitleDetails(titleId: TitleId, region: String): TmdbTitleDetails {
         check(readAccessToken.isNotBlank()) { "TMDb read access token is missing" }
-        return TmdbTitleDetailsParser.parse(executeGet(titleDetailsUrl(titleId)), titleId.mediaKind)
+        return TmdbTitleDetailsParser.parse(executeGet(titleDetailsUrl(titleId)), titleId.mediaKind, region)
     }
 
     private fun executeGet(url: URL): String {
@@ -179,7 +185,7 @@ class TmdbDiscoverClient(
 }
 
 object TmdbTitleDetailsParser {
-    fun parse(body: String, mediaKind: MediaKind): TmdbTitleDetails {
+    fun parse(body: String, mediaKind: MediaKind, region: String = "DK"): TmdbTitleDetails {
         val json = JSONObject(body)
         val externalIds = json.optJSONObject("external_ids") ?: JSONObject()
         val runtimeMinutes = when (mediaKind) {
@@ -200,7 +206,48 @@ object TmdbTitleDetailsParser {
                 "wikidata" to externalIds.optString("wikidata_id"),
             ).filterValues { it.isNotBlank() },
             runtimeMinutes = runtimeMinutes,
+            certification = json.certification(mediaKind, region),
         )
+    }
+
+    private fun JSONObject.certification(mediaKind: MediaKind, region: String): ContentCertification? {
+        val ratings = when (mediaKind) {
+            MediaKind.Movie -> optJSONObject("release_dates")
+                ?.optJSONArray("results")
+                .regionEntries(region)
+                .flatMap { entry -> entry.optJSONArray("release_dates").objects() }
+                .mapNotNull { entry -> entry.optionalString("certification") }
+
+            MediaKind.Series -> optJSONObject("content_ratings")
+                ?.optJSONArray("results")
+                .regionEntries(region)
+                .mapNotNull { entry -> entry.optionalString("rating") }
+        }
+        return ratings
+            .mapNotNull { rating -> rating.minimumAgeOrNull()?.let { age -> rating to age } }
+            .maxByOrNull { (_, age) -> age }
+            ?.let { (rating, age) -> ContentCertification(region.uppercase(), rating, age) }
+    }
+
+    private fun JSONArray?.regionEntries(region: String): List<JSONObject> =
+        objects().filter { entry -> entry.optString("iso_3166_1").equals(region, ignoreCase = true) }
+
+    private fun JSONArray?.objects(): List<JSONObject> =
+        if (this == null) emptyList() else (0 until length()).mapNotNull(::optJSONObject)
+
+    private fun JSONObject.optionalString(key: String): String? =
+        if (isNull(key)) null else optString(key).trim().takeIf { it.isNotEmpty() }
+
+    private fun String.minimumAgeOrNull(): Int? {
+        val normalized = trim().uppercase()
+        return normalized.filter(Char::isDigit).toIntOrNull()
+            ?: when (normalized) {
+                "A", "AL", "G", "TV-G", "TV-Y" -> 0
+                "PG", "TV-PG" -> 7
+                "R" -> 17
+                "TV-MA", "NC-17" -> 18
+                else -> null
+            }
     }
 }
 

@@ -5,15 +5,20 @@ import com.couchindex.core.MediaKind
 import com.couchindex.core.SetWatchedStatus
 import com.couchindex.core.TitleId
 import com.couchindex.core.WatchedEntry
+import com.couchindex.core.ViewerProfile
 import org.json.JSONArray
 import org.json.JSONObject
 
 class WatchedStore(
     context: Context,
+    profile: ViewerProfile = ViewerProfile.Adult,
     private val setWatchedStatus: SetWatchedStatus = SetWatchedStatus(),
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    private val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+    private val preferences = context.getSharedPreferences(
+        profiledPreferencesName(PREFERENCES_NAME, profile),
+        Context.MODE_PRIVATE,
+    )
 
     fun load(): List<WatchedEntry> =
         runCatching {

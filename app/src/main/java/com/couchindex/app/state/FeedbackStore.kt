@@ -6,15 +6,20 @@ import com.couchindex.core.FeedbackValue
 import com.couchindex.core.MediaKind
 import com.couchindex.core.SetTitleFeedback
 import com.couchindex.core.TitleId
+import com.couchindex.core.ViewerProfile
 import org.json.JSONArray
 import org.json.JSONObject
 
 class FeedbackStore(
     context: Context,
+    profile: ViewerProfile = ViewerProfile.Adult,
     private val setTitleFeedback: SetTitleFeedback = SetTitleFeedback(),
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    private val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+    private val preferences = context.getSharedPreferences(
+        profiledPreferencesName(PREFERENCES_NAME, profile),
+        Context.MODE_PRIVATE,
+    )
 
     fun load(): List<FeedbackEntry> =
         runCatching {

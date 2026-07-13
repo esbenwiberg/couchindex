@@ -66,10 +66,11 @@ class TmdbCatalogueRepository(
                     addAll(
                         batch.map { title ->
                             async(Dispatchers.IO) {
-                                val details = runCatching { detailsSource.fetchTitleDetails(title.id) }.getOrNull()
+                                val details = runCatching { detailsSource.fetchTitleDetails(title.id, region) }.getOrNull()
                                 title.copy(
                                     externalIds = details?.externalIds.orEmpty(),
                                     runtimeMinutes = details?.runtimeMinutes,
+                                    certification = details?.certification,
                                 )
                             }
                         }.awaitAll(),

@@ -5,6 +5,11 @@ enum class MediaKind {
     Series,
 }
 
+enum class ViewerProfile {
+    Adult,
+    Kids,
+}
+
 enum class MonetizationType {
     Subscription,
     Rent,
@@ -86,6 +91,12 @@ data class FeedbackEntry(
     val changedAtEpochMillis: Long,
 )
 
+data class ContentCertification(
+    val countryCode: String,
+    val rating: String,
+    val minimumAge: Int,
+)
+
 data class Title(
     val id: TitleId,
     val name: String,
@@ -101,6 +112,7 @@ data class Title(
     val externalIds: Map<String, String> = emptyMap(),
     val posterUrl: String? = null,
     val genreIds: Set<Int> = emptySet(),
+    val certification: ContentCertification? = null,
 )
 
 data class BrowseRow(

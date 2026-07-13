@@ -149,11 +149,13 @@ class TmdbCatalogueRepositoryTest {
                 )
             },
             providers = providers,
-            titleDetailsSource = TmdbTitleDetailsSource { titleId ->
+            titleDetailsSource = TmdbTitleDetailsSource { titleId, region ->
                 assertEquals(item.tmdbId, titleId.tmdbId)
+                assertEquals("DK", region)
                 TmdbTitleDetails(
                     externalIds = mapOf("imdb" to "tt1234567"),
                     runtimeMinutes = 121,
+                    certification = null,
                 )
             },
         )

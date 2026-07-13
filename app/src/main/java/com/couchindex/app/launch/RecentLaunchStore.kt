@@ -6,16 +6,22 @@ import com.couchindex.core.RecentLaunch
 import com.couchindex.core.RecordRecentLaunch
 import com.couchindex.core.RemoveRecentLaunch
 import com.couchindex.core.TitleId
+import com.couchindex.core.ViewerProfile
+import com.couchindex.app.state.profiledPreferencesName
 import org.json.JSONArray
 import org.json.JSONObject
 
 class RecentLaunchStore(
     context: Context,
+    profile: ViewerProfile = ViewerProfile.Adult,
     private val recordRecentLaunch: RecordRecentLaunch = RecordRecentLaunch(),
     private val removeRecentLaunch: RemoveRecentLaunch = RemoveRecentLaunch(),
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    private val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+    private val preferences = context.getSharedPreferences(
+        profiledPreferencesName(PREFERENCES_NAME, profile),
+        Context.MODE_PRIVATE,
+    )
 
     fun load(): List<RecentLaunch> =
         runCatching {

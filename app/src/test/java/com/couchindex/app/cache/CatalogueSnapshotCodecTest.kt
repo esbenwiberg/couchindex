@@ -23,7 +23,7 @@ class CatalogueSnapshotCodecTest {
     @Test
     fun `rejects malformed and unsupported snapshots`() {
         assertNull(CatalogueSnapshotCodec.decode("not json"))
-        assertNull(CatalogueSnapshotCodec.decode("""{"version":2}"""))
+        assertNull(CatalogueSnapshotCodec.decode("""{"version":3}"""))
     }
 
     @Test

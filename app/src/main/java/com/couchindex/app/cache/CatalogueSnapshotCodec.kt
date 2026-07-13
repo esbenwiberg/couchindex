@@ -1,5 +1,6 @@
 package com.couchindex.app.cache
 
+import com.couchindex.core.ContentCertification
 import com.couchindex.core.LaunchTarget
 import com.couchindex.core.MediaKind
 import com.couchindex.core.MonetizationType
@@ -71,6 +72,7 @@ object CatalogueSnapshotCodec {
             .put("externalIds", JSONObject(externalIds))
             .putNullable("posterUrl", posterUrl)
             .put("genreIds", JSONArray(genreIds.toList()))
+            .putNullable("certification", certification?.toJson())
 
     private fun JSONObject.toTitle(): Title? {
         val tmdbId = optInt("tmdbId").takeIf { it > 0 } ?: return null
@@ -91,7 +93,21 @@ object CatalogueSnapshotCodec {
             externalIds = optJSONObject("externalIds")?.stringMap().orEmpty(),
             posterUrl = optionalString("posterUrl"),
             genreIds = optJSONArray("genreIds").ints().toSet(),
+            certification = optJSONObject("certification")?.toCertification(),
         )
+    }
+
+    private fun ContentCertification.toJson(): JSONObject =
+        JSONObject()
+            .put("countryCode", countryCode)
+            .put("rating", rating)
+            .put("minimumAge", minimumAge)
+
+    private fun JSONObject.toCertification(): ContentCertification? {
+        val countryCode = optionalString("countryCode") ?: return null
+        val rating = optionalString("rating") ?: return null
+        val minimumAge = optionalInt("minimumAge")?.takeIf { it >= 0 } ?: return null
+        return ContentCertification(countryCode, rating, minimumAge)
     }
 
     private fun Offer.toJson(): JSONObject =
@@ -161,5 +177,5 @@ object CatalogueSnapshotCodec {
     private fun JSONArray?.ints(): List<Int> =
         if (this == null) emptyList() else (0 until length()).map { optInt(it) }.filter { it > 0 }
 
-    private const val VERSION = 1
+    private const val VERSION = 2
 }

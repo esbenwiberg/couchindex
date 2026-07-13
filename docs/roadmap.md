@@ -90,11 +90,11 @@ acceptance gates live in [the sidequest roadmap](sidequests.md).
 
 ### SQ1: Kids mode foundation
 
-- [ ] Adult and Kids application modes
-- [ ] One-action entry and PIN-protected exit
-- [ ] Start-in-Kids-mode setting without adult-content flash
-- [ ] Fail-closed certification eligibility across every catalogue surface
-- [ ] Separate Adult and Kids personal state
+- [x] Adult and Kids application modes
+- [x] One-action entry and PIN-protected exit
+- [x] Start-in-Kids-mode setting without adult-content flash
+- [x] Fail-closed certification eligibility across every catalogue surface
+- [x] Separate Adult and Kids personal state
 
 ### SQ2: Parent catalogue controls
 
