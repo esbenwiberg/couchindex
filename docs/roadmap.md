@@ -56,7 +56,7 @@
 
 ## Milestone 8: release readiness
 
-- [ ] Confirm `com.couchindex.app` as the permanent Play package identity
+- [x] Confirm `com.couchindex.app` as the permanent Play package identity
 - [x] Replace the launcher banner with a Play-compliant 320x180 asset containing the app name
 - [x] Define upload-key signing without committing credentials
 - [x] Produce and validate a release Android App Bundle

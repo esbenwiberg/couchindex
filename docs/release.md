@@ -10,7 +10,7 @@ Audited on 2026-07-13 against the current Android and Play documentation.
 
 | Area | Current state | Release gate |
 | --- | --- | --- |
-| Package identity | `com.couchindex.app` | Confirm before the Play app is created; it becomes permanent after publication. |
+| Package identity | `com.couchindex.app` is confirmed as the permanent Play identity | Ready. The public CouchIndex display name can still be changed independently. |
 | SDK compatibility | `minSdk 28`, `targetSdk 37` | Ready. Current TV submissions require target API 34 or newer and common-device support requires minimum API 31 or lower. |
 | TV manifest | Leanback required, touchscreen optional, landscape launcher activity | Ready. Preserve the TV-only form-factor declarations. |
 | Launcher assets | Scalable icon and 320x180 raster banner containing `CouchIndex` | Ready for emulator and physical-launcher review. |
