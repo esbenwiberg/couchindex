@@ -54,6 +54,23 @@
 - [x] Cache age with explicit Cached and Stale states
 - [x] Corrupt, unsupported and stale snapshot tests
 
+## Milestone 8: release readiness
+
+- [x] Confirm `com.couchindex.app` as the permanent Play package identity
+- [x] Replace the launcher banner with a Play-compliant 320x180 asset containing the app name
+- [x] Define upload-key signing without committing credentials
+- [x] Produce and validate a release Android App Bundle
+- [x] Create the upload key and validate a signed release bundle
+- [x] Back up the upload keystore and its Keychain password separately
+- [x] Add modern backup and device-transfer exclusions for local personal state
+- [x] Capture final Android TV store screenshots
+- [x] Prepare Play icon, feature graphic and Android TV listing banner
+- [ ] Validate provider handoffs on physical Google TV hardware
+- [ ] Complete Play listing, privacy and data-safety declarations
+- [x] Draft Play listing copy, privacy policy and data-flow evidence
+- [x] Add a monitored release support email
+- [ ] Publish and install an internal-testing build
+
 ## Later investigations
 
 - [x] Media-session playback observation feasibility

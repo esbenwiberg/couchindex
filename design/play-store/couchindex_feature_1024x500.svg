@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <rect width="1024" height="500" fill="#25424a"/>
+  <rect y="390" width="1024" height="110" fill="#d8b95f"/>
+  <g opacity="0.95">
+    <rect x="100" y="86" width="138" height="224" rx="8" fill="#101719"/>
+    <rect x="124" y="112" width="90" height="116" rx="4" fill="#4ba3c7"/>
+    <rect x="124" y="248" width="72" height="10" fill="#f4f1e8"/>
+    <rect x="124" y="270" width="48" height="8" fill="#9caaaf"/>
+    <rect x="786" y="86" width="138" height="224" rx="8" fill="#101719"/>
+    <rect x="810" y="112" width="90" height="116" rx="4" fill="#e8c468"/>
+    <rect x="810" y="248" width="72" height="10" fill="#f4f1e8"/>
+    <rect x="810" y="270" width="48" height="8" fill="#9caaaf"/>
+  </g>
+  <g aria-label="CouchIndex mark">
+    <rect x="356" y="106" width="104" height="18" fill="#e8c468"/>
+    <rect x="356" y="150" width="76" height="18" fill="#e8c468"/>
+    <rect x="356" y="194" width="92" height="18" fill="#e8c468"/>
+    <circle cx="464" cy="154" r="27" fill="#4ba3c7"/>
+    <circle cx="464" cy="154" r="12" fill="#25424a"/>
+  </g>
+  <text x="512" y="294" text-anchor="middle" fill="#f4f1e8"
+      font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="700">CouchIndex</text>
+  <text x="512" y="342" text-anchor="middle" fill="#d7e0e2"
+      font-family="Arial, Helvetica, sans-serif" font-size="24">Your services. One index.</text>
+</svg>

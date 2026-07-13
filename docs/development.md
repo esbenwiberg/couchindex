@@ -48,6 +48,61 @@ Run the local TV smoke check:
 
 Smoke screenshots are written under `build/tv-smoke/`, which is ignored by git.
 
+## Release bundle
+
+Build, test, lint and inspect an unsigned local Android App Bundle with:
+
+```sh
+./scripts/validate-release.sh
+```
+
+Release signing is optional for local validation. Create the upload key once with:
+
+```sh
+./scripts/create-upload-key.sh
+```
+
+The script creates `~/.android/couchindex/couchindex-upload.p12` with restrictive file
+permissions and stores its generated password in macOS Keychain under the service
+`com.couchindex.upload-keystore`. It refuses to replace either an existing keystore or
+an existing Keychain credential. The key is valid through 2053-11-28.
+
+Signed validation reads that Keychain item automatically:
+
+```sh
+./scripts/validate-release.sh --require-signed
+```
+
+For a different signing environment, provide all four values through environment
+variables or ignored `local.properties` entries:
+
+```properties
+COUCHINDEX_UPLOAD_STORE_FILE=/absolute/path/to/couchindex-upload.p12
+COUCHINDEX_UPLOAD_STORE_PASSWORD=your_store_password
+COUCHINDEX_UPLOAD_KEY_ALIAS=couchindex-upload
+COUCHINDEX_UPLOAD_KEY_PASSWORD=your_key_password
+```
+
+The release bundle is written to
+`app/build/outputs/bundle/release/app-release.aab`. Never commit a keystore or its
+credentials. Back up both the keystore and its Keychain password in separate secure,
+recoverable locations before the first Play upload.
+
+Capture the four Android TV listing surfaces after emulator validation with:
+
+```sh
+./scripts/capture-tv-store-assets.sh --skip-install
+```
+
+The 1920x1080 PNGs are written under `build/play-store/tv/`, which is ignored by git.
+
+Regenerate and dimension-check the launcher and Play listing graphics from their SVG
+sources with:
+
+```sh
+./scripts/render-play-assets.sh
+```
+
 ## Catalogue cache
 
 The last successful live provider directory and enriched catalogue are stored atomically in the app-private file
